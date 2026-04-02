@@ -1,0 +1,8 @@
+mistletoe
+spacy
+spacy-wordnet
+typer
+
+# test / optional runtime deps
+pytest
+nltk

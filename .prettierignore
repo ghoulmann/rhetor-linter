@@ -1,0 +1,12 @@
+.venv/
+env/
+venv/
+ENV/
+__pycache__/
+*.egg-info/
+build/
+dist/
+docs/_build/
+.pixi/
+node_modules/
+tmp*.md

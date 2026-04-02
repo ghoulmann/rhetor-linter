@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+mistletoe = "*"
+spacy = "*"
+spacy-wordnet = "*"
+typer = "*"
+nltk = "*"
+pyyaml = "*"
+
+[dev-packages]
+pytest = "*"
+pytest-cov = "*"
+
+[requires]
+python_version = "3.8"

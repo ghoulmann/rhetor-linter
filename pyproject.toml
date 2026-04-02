@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rhetoric-lint"
+version = "0.1.0"
+description = "A Markdown linter for rhetorical and structural quality"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    { name = "Rik Goldman", email = "rikg@protonmail.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "mistletoe",
+    "spacy",
+    "spacy-wordnet",
+    "typer",
+    "nltk",
+]
+
+[project.optional-dependencies]
+yaml = ["pyyaml"]
+dev = ["pytest", "pytest-cov"]
+
+[project.scripts]
+rhetoric-lint = "rhetoric_lint.main:app"
+
+[project.urls]
+Homepage = "https://github.com/ghoulmann/rhetor-linter"
+Repository = "https://github.com/ghoulmann/rhetor-linter"
+Issues = "https://github.com/ghoulmann/rhetor-linter/issues"
+
+[tool.setuptools.packages.find]
+include = ["rhetoric_lint*"]
+
+[tool.setuptools.package-data]
+rhetoric_lint = ["py.typed"]
