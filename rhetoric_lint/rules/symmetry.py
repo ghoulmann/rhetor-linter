@@ -1,6 +1,8 @@
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from rhetoric_lint.rules._list_utils import group_contiguous_lists
+
 # Structure.TaskOrientation and Symmetry.* are meaningful only for task-oriented
 # (technical / how-to) documentation.  For other genres these checks produce
 # systematic false positives (e.g. scholarly prose, syllabi).
@@ -109,26 +111,6 @@ def _is_task_list(sections: List[Dict], list_start_pos: int, text: str, nlp, con
             return True
     
     return False
-
-
-def _group_contiguous_lists(items, text):
-    """Group list items into contiguous lists.
-    
-    Items separated by double newlines are treated as separate lists.
-    """
-    lists = []
-    for m in items:
-        if not lists:
-            lists.append([m])
-            continue
-        prev = lists[-1][-1]
-        # if there's only blank or indented lines between, treat as same list
-        between = text[prev.end():m.start()]
-        if "\n\n" not in between:  # contiguous (no empty line separation)
-            lists[-1].append(m)
-        else:
-            lists.append([m])
-    return lists
 
 
 def _construction_shape(pos: str, tag: str) -> str:
@@ -245,7 +227,7 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
     items = [m for m in items if not _in_fenced(m.start())]
     
     # Group contiguous list items into lists
-    lists = _group_contiguous_lists(items, text)
+    lists = group_contiguous_lists(items, text)
 
     # Symmetry.Parallelism: check for parallel construction in all lists
     min_list_size = getattr(const, "MIN_LIST_SIZE_FOR_PARALLELISM", 4)

@@ -138,6 +138,37 @@ TASK_INTRO_PATTERNS = [
     "do the following",
 ]
 
+# Trivializing language (Rhetoric.TrivializingLanguage)
+# NOTE: "just" has high false-positive risk (non-trivializing uses: "just as important",
+# "not just X", "just released"). Monitor precision and remove if noisy.
+TRIVIALIZING_WORDS = [
+    "simply",
+    "just",
+    "easily",
+    "obviously",
+    "of course",
+    "straightforward",
+]
+
+# Modal ambiguity (Rhetoric.ModalAmbiguity)
+PRESCRIPTIVE_MODALS = ["must", "shall", "required", "have to", "need to", "has to", "needs to"]
+ADVISORY_MODALS = ["should", "may", "might", "recommend", "consider", "optional"]
+
+# Forward reference phrases (Cohesion.ForwardReference)
+FORWARD_REFERENCE_PHRASES = [
+    "as described above",
+    "as mentioned above",
+    "as shown above",
+    "as outlined above",
+    "in the previous section",
+    "from the previous section",
+    "the previous step",
+    "from the earlier",
+    "as we saw",
+    "as we discussed",
+    "per the above",
+]
+
 # Patterns that indicate descriptive/explanatory content (NOT task lists)
 DESCRIPTIVE_LIST_PATTERNS = [
     "workflow is as follows",
@@ -322,6 +353,9 @@ RULE_DESCRIPTIONS = {
     "Cohesion.TerminologyDrift":        "Different sections use different words for the same concept (e.g., 'endpoint' vs. 'route').",
     "Cohesion.AbandonedTopic":          "A key term introduced early in the document is never mentioned again in later sections.",
     "Cohesion.MisusedConnective":       "A transition word (e.g., 'however', 'therefore') does not match the actual relationship between sentences.",
+    "Rhetoric.TrivializingLanguage":    "Prose uses trivializing language ('simply', 'just', 'easily', 'obviously', 'of course', 'straightforward') that implies the reader should find this easy, creating a face threat when they don't.",
+    "Rhetoric.ModalAmbiguity":          "An ordered procedure list mixes prescriptive modals (must, shall, required) with advisory modals (should, may, recommend), making it unclear which steps are mandatory and which are optional.",
+    "Cohesion.ForwardReference":        "Prose contains a backward-reference phrase ('as described above', 'in the previous section', etc.) that creates a linear dependency, preventing the section from functioning as a standalone entry point.",
     "Completeness.ConceptOverload":     "Too many paragraphs of explanation appear before the first actionable step or structural element.",
     "Completeness.StructureLead":       "Section opens directly with a list or code block without a lead sentence explaining its purpose.",
     "Engine.OversizedDocument":         "Document exceeds NLP_MAX_CHARS; full-document NLP analysis was truncated. Section-level checks run on the complete file.",
@@ -408,10 +442,13 @@ RULE_SEVERITY_LEVELS = {
     # Cohesion / Resilience
     "Cohesion.DeicticGhost": "warning",
     "Resilience.ErrorPathPresence": "warning",
+    "Rhetoric.ModalAmbiguity": "warning",
     # New rules (Round 4)
     "Cohesion.TerminologyDrift": "suggestion",
     "Cohesion.AbandonedTopic": "suggestion",
     "Cohesion.MisusedConnective": "suggestion",
+    "Rhetoric.TrivializingLanguage": "suggestion",
+    "Cohesion.ForwardReference": "suggestion",
     "Completeness.ConceptOverload": "suggestion",
     "Completeness.StructureLead": "suggestion",
     "Engine.OversizedDocument": "suggestion",

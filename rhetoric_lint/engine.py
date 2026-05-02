@@ -194,6 +194,7 @@ class RhetoricEngine:
             "reference",
             "explanation",
             "doc_templates",
+            "forward_ref",
         ):
             mod = import_module(f"rhetoric_lint.rules.{name}")
             if hasattr(mod, "check"):
