@@ -117,6 +117,34 @@ def test_resilience_admonition_satisfies_failure_guidance(tmp_path):
     ), "Section with {warning} admonition body must satisfy ErrorPathPresence"
 
 
+def test_soft_linebreak_preserves_word_boundary(tmp_path):
+    """Multi-line paragraphs must not concatenate words across soft breaks.
+
+    Regression for an engine-level bug where mistletoe LineBreak tokens were
+    rendered as "" by _node_text, producing 'lives\\nin' -> 'livesin'. This
+    silently dropped content overlap signal in cohesion analysis on every
+    multi-line paragraph in every doc.
+    """
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview.\n\n"
+        "## Section heading goes here\n\n"
+        "The class lives\n"
+        "in the module under a package named for the\n"
+        "jurisdiction. The class survives even when reloaded.\n"
+    )
+    p = tmp_path / "softbreak.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    sections = engine._parse_with_mistletoe(md)
+    target = next(s for s in sections if s.get("heading") == "Section heading goes here")
+    para_text = target["paragraphs"][0]["text"]
+    assert "livesin" not in para_text
+    assert "lives in" in para_text
+    assert "thejurisdiction" not in para_text
+    assert "the\njurisdiction" not in para_text  # newline collapsed to space
+
+
 def test_resilience_still_fires_on_unguarded_procedure(tmp_path):
     """Recall guard: a procedure with no failure guidance must still warn."""
     md = (

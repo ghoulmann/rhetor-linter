@@ -339,6 +339,13 @@ class RhetoricEngine:
 
         # helper: recursively extract textual content from a mistletoe node
         def _node_text(n):
+            # Soft line breaks ("\n" inside a paragraph) are emitted as LineBreak
+            # tokens with empty content. Treat them as a single space so adjacent
+            # words across a wrapped line don't concatenate ("lives\nin" → "lives in",
+            # not "livesin"). Without this, every multi-line paragraph silently
+            # loses content overlap signal in cohesion analysis.
+            if n.__class__.__name__ == "LineBreak":
+                return " "
             txt = getattr(n, "content", None)
             if txt:
                 return txt
