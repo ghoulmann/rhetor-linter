@@ -1,6 +1,14 @@
+import re
 from typing import Any, Dict, List
 
 from rhetoric_lint.engine import get_synsets
+
+# Identifiers like court_scraper.scrapers, captcha_service_required, sites_meta
+# arrive from spaCy as a single token with is_alpha=False because of the dots,
+# underscores, or dashes. These tokens carry topical signal in technical prose
+# and must contribute to lemma overlap; without them, sentence pairs that share
+# only identifier tokens look unrelated to cohesion analysis.
+_IDENT_SPLIT_RE = re.compile(r"[._\-]")
 from rhetoric_lint.overlap import (
     adjacent_overlap_metrics,
     channelize_tokens,
@@ -31,6 +39,18 @@ def _token_lemmas(sent):
     lemmas = set()
     for tok in sent:
         if not (getattr(tok, "is_alpha", False)):
+            # Identifier-like non-alpha tokens (course_scraper.scrapers,
+            # captcha_service_required) — split on separators and add each
+            # alphabetic component as its own lemma.
+            surface = (getattr(tok, "text", "") or "").lower()
+            if not surface or not any(sep in surface for sep in "._-"):
+                continue
+            for part in _IDENT_SPLIT_RE.split(surface):
+                if len(part) < 2 or not part.isalpha():
+                    continue
+                if part in GENERIC_TOKENS:
+                    continue
+                lemmas.add(part)
             continue
         if getattr(tok, "is_stop", False):
             continue

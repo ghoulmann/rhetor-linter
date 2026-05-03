@@ -11,9 +11,12 @@ pytest.importorskip("mistletoe")
 from rhetoric_lint.engine import (  # noqa: E402
     RhetoricEngine,
     _blank_html_comments,
+    _rewrite_gfm_alerts,
+    _rewrite_mkdocs_admonitions,
     _rewrite_myst_admonitions,
     _strip_myst_roles,
 )
+from rhetoric_lint.rules.cohesion import _token_lemmas  # noqa: E402
 
 
 def test_html_comment_blanking_preserves_line_count():
@@ -143,6 +146,116 @@ def test_soft_linebreak_preserves_word_boundary(tmp_path):
     assert "lives in" in para_text
     assert "thejurisdiction" not in para_text
     assert "the\njurisdiction" not in para_text  # newline collapsed to space
+
+
+def test_mkdocs_admonition_rewrite_preserves_line_count():
+    text = (
+        "intro line\n"
+        "\n"
+        "!!! warning \"Optional title\"\n"
+        "    Body line one.\n"
+        "    Body line two.\n"
+        "\n"
+        "after\n"
+    )
+    out = _rewrite_mkdocs_admonitions(text)
+    assert out.count("\n") == text.count("\n")
+    assert "Warning" in out
+    assert "Body line one" in out
+    # Marker line replaced; body lines re-prefixed as blockquote.
+    assert "!!!" not in out
+
+
+def test_mkdocs_collapsible_admonition_rewrites():
+    text = "??? note\n    Hidden body content here.\n"
+    out = _rewrite_mkdocs_admonitions(text)
+    assert "Note" in out
+    assert "Hidden body content" in out
+    assert "???" not in out
+
+
+def test_mkdocs_admonition_does_not_consume_unindented_following_para(tmp_path):
+    """Body ends at the first non-blank line not indented past the marker."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Deploy the worker\n\n"
+        "1. Build the image.\n"
+        "2. Push it to the registry.\n\n"
+        "!!! warning\n"
+        "    If the registry push fails, abort and notify the on-call engineer.\n"
+        "\n"
+        "Subsequent ordinary paragraph that should not be inside the admonition.\n"
+    )
+    p = tmp_path / "mkdocs.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    # The admonition body satisfies ErrorPathPresence for the procedural section.
+    assert not any(
+        i.get("check") == "Resilience.ErrorPathPresence" and "Deploy the worker" in i.get("message", "")
+        for i in issues
+    )
+
+
+def test_gfm_alert_rewrite_preserves_line_count():
+    text = (
+        "before\n"
+        "\n"
+        "> [!WARNING]\n"
+        "> Body text of the alert.\n"
+        "> More body.\n"
+        "\n"
+        "after\n"
+    )
+    out = _rewrite_gfm_alerts(text)
+    assert out.count("\n") == text.count("\n")
+    assert "Warning" in out
+    assert "[!WARNING]" not in out
+
+
+def test_gfm_alert_satisfies_resilience(tmp_path):
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Deploy the worker\n\n"
+        "1. Build the image.\n"
+        "2. Push to the registry.\n"
+        "3. Apply the manifest.\n\n"
+        "> [!WARNING]\n"
+        "> If the registry push fails, abort and notify the on-call engineer.\n"
+    )
+    p = tmp_path / "gfm.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert not any(
+        i.get("check") == "Resilience.ErrorPathPresence" and "Deploy the worker" in i.get("message", "")
+        for i in issues
+    )
+
+
+def test_token_lemmas_splits_dotted_identifiers():
+    """spaCy emits 'court_scraper.scrapers' as one non-alpha token; cohesion
+    must still see 'scraper'/'scrapers' as content lemmas."""
+    engine = RhetoricEngine()
+    sent = engine.nlp("The class lives in court_scraper.scrapers namespace.")
+    lemmas = _token_lemmas(sent)
+    # Identifier components are surfaced.
+    assert "scraper" in lemmas or "scrapers" in lemmas
+    assert "court" in lemmas
+    # Stop/short fragments not included.
+    assert "a" not in lemmas
+
+
+def test_token_lemmas_splits_underscore_identifiers():
+    engine = RhetoricEngine()
+    sent = engine.nlp("Set captcha_service_required=True in the sites_meta entry.")
+    lemmas = _token_lemmas(sent)
+    assert "captcha" in lemmas
+    assert "service" in lemmas
+    assert "required" in lemmas
+    assert "sites" in lemmas or "meta" in lemmas
 
 
 def test_resilience_still_fires_on_unguarded_procedure(tmp_path):

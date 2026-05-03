@@ -60,6 +60,88 @@ def _rewrite_myst_admonitions(text: str) -> str:
     return _MYST_ADMONITION_RE.sub(_rewrite, text)
 
 
+# MkDocs Material admonitions: "!!! kind [\"title\"]" or "??? kind" / "???+ kind"
+# (collapsible) followed by indented body lines. Mistletoe does not understand
+# this syntax — the marker line is a plain paragraph and the indented body is
+# parsed as either a continuation paragraph or a nested code block depending on
+# indent depth, neither of which surfaces the admonition kind to keyword-based
+# rules. Rewrite line-by-line into a blockquote so the kind is visible prose.
+_MKDOCS_MARKER_RE = re.compile(
+    r"^(?P<indent>[ \t]*)(?P<marker>!!!|\?\?\?\+?)[ \t]+"
+    r"(?P<kind>[A-Za-z][A-Za-z0-9-]*)"
+    r"(?:[ \t]+\"(?P<title>[^\"]*)\")?[ \t]*$"
+)
+
+
+def _rewrite_mkdocs_admonitions(text: str) -> str:
+    """Rewrite MkDocs Material admonitions to blockquotes, preserving line counts.
+
+    The marker line is replaced with `> **Kind:** [title]` and each body line
+    (any line indented past the marker, or blank) has its leading indent
+    replaced with `> `. Body ends at the first non-blank line not indented past
+    the marker.
+    """
+    lines = text.split("\n")
+    out: list = []
+    i = 0
+    while i < len(lines):
+        m = _MKDOCS_MARKER_RE.match(lines[i])
+        if not m:
+            out.append(lines[i])
+            i += 1
+            continue
+        base_indent = m.group("indent")
+        kind = m.group("kind").capitalize()
+        title = m.group("title")
+        lead = f"{base_indent}> **{kind}:**"
+        if title:
+            lead = f"{lead} {title}"
+        out.append(lead)
+        i += 1
+        # Walk body: continue while line is blank or indented past base_indent.
+        while i < len(lines):
+            line = lines[i]
+            if not line.strip():
+                out.append(line)
+                i += 1
+                continue
+            stripped_len = len(line) - len(line.lstrip())
+            if stripped_len > len(base_indent):
+                # Body line — strip extra indent past the marker, prefix with "> ".
+                body_text = line[len(base_indent):].lstrip()
+                out.append(f"{base_indent}> {body_text}")
+                i += 1
+                continue
+            break
+    return "\n".join(out)
+
+
+# GitHub Flavored Markdown alerts: a blockquote whose first line is "> [!KIND]"
+# where KIND is one of NOTE, TIP, IMPORTANT, WARNING, CAUTION. Rewrite the
+# first line to a bold lead inside the blockquote so the kind keyword becomes
+# visible prose. Remaining body lines are already prose blockquote content.
+_GFM_ALERT_RE = re.compile(
+    r"^(?P<indent>[ \t]*)>[ \t]*"
+    r"\[!(?P<kind>NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$",
+    re.M,
+)
+
+
+def _rewrite_gfm_alerts(text: str) -> str:
+    """Rewrite GFM alert blockquote leads to bold prose, preserving line counts."""
+    def _rewrite(m: "re.Match[str]") -> str:
+        return f"{m.group('indent')}> **{m.group('kind').capitalize()}:**"
+    return _GFM_ALERT_RE.sub(_rewrite, text)
+
+
+# TODO: Docusaurus admonition support (future).
+# Syntax: ":::note\nbody\n:::" with optional title ":::note Title\nbody\n:::".
+# Mirror _rewrite_myst_admonitions with a ":::"-delimited regex. Out of scope
+# for this round per user direction; track when a Docusaurus corpus appears.
+# MDX imports and JSX components are a separate stripping problem and remain
+# unsupported.
+
+
 def _blank_html_comments(text: str) -> str:
     """Replace HTML comment bodies with blanks of equal length, preserving newlines."""
     def _blank(m: "re.Match[str]") -> str:
@@ -573,12 +655,16 @@ class RhetoricEngine:
             # but the newline is preserved so all line numbers remain accurate.
             text = _LINK_REF_DEF_RE.sub("", text)
 
-            # Strip HTML comments (line-preserving), rewrite MyST admonition fences
-            # to blockquotes (line-preserving), and strip MyST inline role directives
-            # before AST parsing and NLP so non-prose markup doesn't surface as
-            # tokens and admonition bodies become visible to rules.
+            # Strip HTML comments (line-preserving), rewrite admonition syntax
+            # for the three target markup flavors (MyST fences, MkDocs Material,
+            # GFM alerts) to blockquotes, and strip MyST inline role directives.
+            # All rewriters preserve line counts and are syntactically orthogonal
+            # — each is a no-op on docs of the other flavors, so they all run
+            # unconditionally without flavor detection.
             text = _blank_html_comments(text)
             text = _rewrite_myst_admonitions(text)
+            text = _rewrite_mkdocs_admonitions(text)
+            text = _rewrite_gfm_alerts(text)
             text = _strip_myst_roles(text)
 
             nlp_text = text
