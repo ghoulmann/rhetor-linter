@@ -37,29 +37,68 @@ def _first_verb_tag(heading: str, nlp) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _is_procedural_section(sec: dict, nlp, const) -> bool:
-    """Return True if the section is task/procedure-oriented."""
-    heading = (sec.get("heading") or "").strip()
-    heading_lower = heading.lower()
-
-    task_keywords = [k.lower() for k in getattr(const, "TASK_LIST_KEYWORDS", [])]
-
-    # 1. Heading contains a task keyword
-    if any(kw in heading_lower for kw in task_keywords):
-        return True
-
-    # 2. Heading first token is imperative (VB) or gerund (VBG)
-    result = _first_verb_tag(heading, nlp)
-    if result and result[1] in ("VB", "VBG"):
-        return True
-
-    # 3. Section contains an ordered list
+def _has_ordered_list(sec: dict) -> bool:
     for para in sec.get("paragraphs", []):
         for node in para.get("nodes", []):
             if node.get("type") == "ListItem" and node.get("list_type") == "ol":
                 return True
-
     return False
+
+
+def _imperative_sentence_count(sec: dict) -> int:
+    """Count body sentences whose first content word is a known action verb.
+
+    Cheap proxy for imperative density that doesn't require deep parse-tree
+    analysis. A section is procedural in fact only if its prose tells the
+    reader to do things, not merely if its heading begins with a verb.
+    """
+    count = 0
+    for para in sec.get("paragraphs", []):
+        for sent in para.get("sentences", []) or []:
+            doc = sent.get("doc")
+            if doc is None:
+                # Fallback: regex-tokenize the first content word.
+                stext = sent.get("text", "").strip()
+                m = re.match(r"\s*([A-Za-z]+)", stext)
+                if m and m.group(1).lower() in _ACTION_VERBS:
+                    count += 1
+                continue
+            for tok in doc:
+                if tok.is_space or tok.is_punct:
+                    continue
+                if tok.text.lower() in _ACTION_VERBS:
+                    count += 1
+                break
+    return count
+
+
+def _is_procedural_section(sec: dict, nlp, const) -> bool:
+    """Return True if the section is task/procedure-oriented.
+
+    A section is procedural if EITHER:
+      (a) it contains an ordered list (the steps are explicit), OR
+      (b) its heading signals a procedure (task-keyword or verb-led) AND
+          its body contains >= 2 imperative sentences.
+
+    Heading signals alone are too weak: "Add a Site class", "Understand the
+    data flow", and "Configure the runner" all begin with verbs but are
+    conceptual orientation rather than executable procedures.
+    """
+    heading = (sec.get("heading") or "").strip()
+    heading_lower = heading.lower()
+
+    if _has_ordered_list(sec):
+        return True
+
+    task_keywords = [k.lower() for k in getattr(const, "TASK_LIST_KEYWORDS", [])]
+    heading_has_task_keyword = any(kw in heading_lower for kw in task_keywords)
+    result = _first_verb_tag(heading, nlp)
+    heading_is_verb_led = bool(result and result[1] in ("VB", "VBG"))
+
+    if not (heading_has_task_keyword or heading_is_verb_led):
+        return False
+
+    return _imperative_sentence_count(sec) >= 2
 
 
 def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:

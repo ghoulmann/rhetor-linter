@@ -56,11 +56,18 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
     weak_verbs = getattr(const, "WEAK_VERBS", {}) if const else {}
     generic_tokens = set(getattr(const, "GENERIC_HEADINGS", [])) if const else set()
 
-    for h in headings:
+    for h_idx, h in enumerate(headings):
         level = h["level"]
         htext = h["text"]
         pos = h["pos"]
         line = _line_from_pos(text, pos)
+
+        # Nearest ancestor heading (most recent preceding heading with lower level).
+        ancestor = None
+        for prev in reversed(headings[:h_idx]):
+            if prev["level"] < level:
+                ancestor = prev
+                break
 
         # Skip empty headings
         if not htext:
@@ -128,9 +135,18 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
         # Three-stage pipeline: standard-name gate → synset check → lexical fallback.
         if level >= 2 and h1:
             standard_names = set(getattr(const, "STANDARD_SECTION_NAMES", [])) if const else set()
+            # An H1 is "specific" only if it carries enough content words to act as
+            # a topical anchor. 2 content words (e.g. "Writing a scraper") is too
+            # generic — many legitimate subheads share neither lemma nor synset
+            # with such an H1. Require >= 3.
             h1_is_specific = nlp and len(
                 [t for t in nlp(h1["text"]) if t.is_alpha and not t.is_stop]
-            ) >= 2
+            ) >= 3
+            # If the H1 is too generic to act as an anchor, skip InformationScent
+            # for non-standard-named headings — there is no meaningful baseline
+            # against which to measure overlap.
+            if not h1_is_specific and htext.lower().strip() not in standard_names:
+                continue
 
             # Stage 1: Standard section name gate (level-aware)
             if standard_names and htext.lower().strip() in standard_names:
@@ -168,6 +184,35 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
 
             if h1_syn and h_syn and not h1_syn.isdisjoint(h_syn):
                 continue  # synset bridge found — no issue
+
+            # Ancestor-path bridging: an H3 under H2 'Code a scraper' may share no
+            # tokens with the H1 but be perfectly coherent with its parent. If the
+            # ancestor heading overlaps with this heading AND with the H1, the
+            # heading is reachable through the path and should not warn.
+            if ancestor and ancestor is not h1:
+                try:
+                    a_syn = get_synsets(ancestor["text"]) or set()
+                except Exception:
+                    a_syn = set()
+                ancestor_bridges_h = bool(a_syn and h_syn and not a_syn.isdisjoint(h_syn))
+                ancestor_bridges_h1 = bool(a_syn and h1_syn and not a_syn.isdisjoint(h1_syn))
+                if not (ancestor_bridges_h and ancestor_bridges_h1) and nlp:
+                    a_lemmas = {
+                        t.lemma_.lower() for t in nlp(ancestor["text"]) if not t.is_stop and t.is_alpha
+                    }
+                    h1_lemmas = {
+                        t.lemma_.lower() for t in nlp(h1["text"]) if not t.is_stop and t.is_alpha
+                    }
+                    h_lemmas = (
+                        {t.lemma_.lower() for t in doc if not t.is_stop and t.is_alpha}
+                        if doc else set()
+                    )
+                    if not ancestor_bridges_h:
+                        ancestor_bridges_h = bool(a_lemmas & h_lemmas)
+                    if not ancestor_bridges_h1:
+                        ancestor_bridges_h1 = bool(a_lemmas & h1_lemmas)
+                if ancestor_bridges_h and ancestor_bridges_h1:
+                    continue  # path-bridged through ancestor heading
 
             # Stage 3: Lexical fallback — shared content-word lemmas downgrade to suggestion
             if nlp and doc:

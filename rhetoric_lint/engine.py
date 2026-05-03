@@ -22,9 +22,62 @@ _IMAGE_ONLY_RE = re.compile(r"^!\[.*?\](?:\[.*?\]|\(.*?\))$", re.DOTALL)
 _MD_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _MD_REF_LINK_RE = re.compile(r"\[([^\]]+)\]\[[^\]]*\]")
 
+# HTML comments are non-prose annotations that mistletoe surfaces as RawHTML
+# inside paragraphs. Without stripping, the comment text is fed to the NLP
+# pipeline and cohesion/topic rules treat it as adjacent prose.
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+# MyST role directives like {code}`Site`, {py:class}`...`, {ref}`label <target>`
+# leak the role name and angle-bracket target into the token stream. Strip the
+# role prefix and (for {ref}-style) the `<target>` portion, keeping the visible
+# label text only.
+_MYST_REF_LABEL_RE = re.compile(r"\{[a-zA-Z][\w:.-]*\}`([^`<]+?)\s*<[^`>]*>`")
+_MYST_ROLE_RE = re.compile(r"\{[a-zA-Z][\w:.-]*\}`([^`]+)`")
+
+# MyST admonition fences: ```{warning} ... ``` blocks. Mistletoe parses them
+# as opaque code blocks, hiding the prose inside from rules that check for
+# failure guidance, topic continuity, etc. Rewrite the fence to a blockquote
+# carrying the admonition kind as a Markdown bold lead so the body becomes
+# visible prose. Line counts are preserved (open/close fences become blank
+# lines; body lines become "> " prefixed).
+_MYST_ADMONITION_RE = re.compile(
+    r"^(?P<indent>[ \t]*)```\{(?P<kind>note|warning|tip|caution|important|danger|attention|hint|seealso)\}[ \t]*\n(?P<body>.*?)\n(?P=indent)```[ \t]*$",
+    re.DOTALL | re.M,
+)
+
+
+def _rewrite_myst_admonitions(text: str) -> str:
+    """Rewrite ```{kind} ... ``` fences to blockquotes, preserving line counts."""
+    def _rewrite(m: "re.Match[str]") -> str:
+        kind = m.group("kind").capitalize()
+        body_lines = m.group("body").split("\n")
+        # Original span covers: open-fence line, len(body_lines) body lines,
+        # close-fence line — total len(body_lines)+2 lines.
+        out_lines = [f"> **{kind}:**"]
+        out_lines.extend(f"> {line}" for line in body_lines)
+        out_lines.append("")  # was close fence
+        return "\n".join(out_lines)
+    return _MYST_ADMONITION_RE.sub(_rewrite, text)
+
+
+def _blank_html_comments(text: str) -> str:
+    """Replace HTML comment bodies with blanks of equal length, preserving newlines."""
+    def _blank(m: "re.Match[str]") -> str:
+        return "".join("\n" if c == "\n" else " " for c in m.group(0))
+    return _HTML_COMMENT_RE.sub(_blank, text)
+
+
+def _strip_myst_roles(text: str) -> str:
+    """Strip MyST inline role directives, keeping only the visible label text."""
+    text = _MYST_REF_LABEL_RE.sub(r"\1", text)
+    text = _MYST_ROLE_RE.sub(r"\1", text)
+    return text
+
 
 def _strip_md_links(text: str) -> str:
     """Replace [text](url) and [text][ref] with just text for NLP input."""
+    text = _MYST_REF_LABEL_RE.sub(r"\1", text)
+    text = _MYST_ROLE_RE.sub(r"\1", text)
     text = _MD_INLINE_LINK_RE.sub(r"\1", text)
     text = _MD_REF_LINK_RE.sub(r"\1", text)
     return text
@@ -512,6 +565,14 @@ class RhetoricEngine:
             # definitions: "[img1]: data:image/png;base64,..."). The content is removed
             # but the newline is preserved so all line numbers remain accurate.
             text = _LINK_REF_DEF_RE.sub("", text)
+
+            # Strip HTML comments (line-preserving), rewrite MyST admonition fences
+            # to blockquotes (line-preserving), and strip MyST inline role directives
+            # before AST parsing and NLP so non-prose markup doesn't surface as
+            # tokens and admonition bodies become visible to rules.
+            text = _blank_html_comments(text)
+            text = _rewrite_myst_admonitions(text)
+            text = _strip_myst_roles(text)
 
             nlp_text = text
             if len(text) > const.NLP_MAX_CHARS:
