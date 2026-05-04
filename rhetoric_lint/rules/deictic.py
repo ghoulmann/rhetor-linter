@@ -44,26 +44,25 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                 sent_start = srec.get("start", 0)
                 line = text[:sent_start].count("\n") + 1
 
-                # Scan first 5 tokens for a standalone deictic pronoun
+                # Look at the FIRST content token only. Anaphoric "this/that/
+                # these/those" used as deictic pronoun appears at sentence
+                # start; mid-sentence "that" is almost always a relative
+                # pronoun or complementizer ("Sites that are heavy..."), not
+                # a deictic ghost. Scanning further produces false positives
+                # on every sentence containing a relative clause.
                 deictic_found = False
-                for i, tok in enumerate(span):
-                    if i >= 5:
-                        break
-                    if tok.text.lower() not in _DEICTIC:
-                        continue
-
-                    pos_ = getattr(tok, "pos_", "")
-                    dep_ = getattr(tok, "dep_", "")
-
-                    # Standalone pronoun: POS is PRON or dependency is subject/root
+                first_tok = next(
+                    (t for t in span if not t.is_space and not t.is_punct),
+                    None,
+                )
+                if first_tok is not None and first_tok.text.lower() in _DEICTIC:
+                    pos_ = getattr(first_tok, "pos_", "")
+                    dep_ = getattr(first_tok, "dep_", "")
                     if pos_ == "PRON" or dep_ in ("nsubj", "ROOT", "attr", "nsubjpass"):
                         deictic_found = True
-                        break
-
-                    # Fallback for blank spaCy model (no POS tags): flag at position 0 only
-                    if not pos_ and i == 0:
+                    elif not pos_:
+                        # Blank spaCy model fallback
                         deictic_found = True
-                        break
 
                 cur_content = _content_lemmas(span, pronouns)
 

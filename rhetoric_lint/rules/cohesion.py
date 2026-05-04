@@ -431,6 +431,38 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
             if filtered_prev_lemmas & filtered_cur_lemmas:
                 continue
 
+            # Demonstrative-determiner bridge: cur sentence opens with
+            # "this/that/these/those/such" + a content noun ("This file",
+            # "Such cases", "These jurisdictions"). The demonstrative refers
+            # anaphorically to something in the prior sentence — the reader
+            # resolves the antecedent and lexical repetition is not required.
+            # Guarded against pronoun usage ("This is a problem.") by
+            # requiring the next content token to be a noun, not a copula.
+            if len(filtered_prev_lemmas) >= 2:
+                first_word = ""
+                second_pos = ""
+                second_is_alpha_content = False
+                for tok in cur:
+                    if tok.is_space or tok.is_punct:
+                        continue
+                    if not first_word:
+                        first_word = tok.text.lower()
+                        continue
+                    second_pos = getattr(tok, "pos_", "")
+                    second_is_alpha_content = (
+                        getattr(tok, "is_alpha", False)
+                        and not getattr(tok, "is_stop", False)
+                    )
+                    break
+                if first_word in {"this", "that", "these", "those", "such"}:
+                    # Determiner usage: followed by a noun-like content word.
+                    # If POS tagging is available, prefer NOUN/PROPN; otherwise
+                    # accept any non-stop alpha token as a noun proxy.
+                    if second_pos in {"NOUN", "PROPN"} or (
+                        not second_pos and second_is_alpha_content
+                    ):
+                        continue
+
             # Stem bridge: 6-char morphological prefix (require/requirement, install/installation)
             # Applied only as fallback when direct lemma overlap is zero, to avoid
             # over-bridging short words (config/conflict, contain/contaminate).

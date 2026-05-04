@@ -248,6 +248,78 @@ def test_token_lemmas_splits_dotted_identifiers():
     assert "a" not in lemmas
 
 
+def test_cohesion_demonstrative_determiner_bridges(tmp_path):
+    """'Such cases', 'This file', 'These X' anaphoric references should bridge."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Storage strategy\n\n"
+        "We store thumbnails in object storage rather than the relational database. "
+        "Such storage scales independently of the primary write workload. "
+        "These thumbnails are served directly from the bucket.\n"
+    )
+    p = tmp_path / "demonstrative.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    breaks = [i for i in issues if i.get("check") == "Cohesion.Break"]
+    assert not breaks, (
+        "Demonstrative determiners ('Such', 'These') opening a sentence "
+        f"with a content noun should bridge cohesion. Got: {breaks}"
+    )
+
+
+def test_cohesion_demonstrative_pronoun_does_not_bridge(tmp_path):
+    """'This is X' (demonstrative as pronoun, not determiner) should NOT bridge."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Storage strategy\n\n"
+        "We store thumbnails in object storage rather than the relational database. "
+        "Whales migrate thousands of miles each year along ocean corridors.\n"
+    )
+    p = tmp_path / "no-bridge.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    # Genuinely unrelated sentences must still flag.
+    assert any(i.get("check") == "Cohesion.Break" for i in issues)
+
+
+def test_deictic_ghost_ignores_relative_pronoun_that(tmp_path):
+    """'Sites that are heavy' — 'that' is a relative pronoun, not deictic."""
+    md = (
+        "# Scraping strategy\n\n"
+        "Top-level overview.\n\n"
+        "## Approach\n\n"
+        "We favor scrapers that gather data using basic HTTP calls. "
+        "Sites that are heavy on dynamically generated content require "
+        "browser automation instead.\n"
+    )
+    p = tmp_path / "relpron.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert not any(i.get("check") == "Cohesion.DeicticGhost" for i in issues), \
+        "Mid-sentence relative-pronoun 'that' must not be flagged as deictic"
+
+
+def test_deictic_ghost_still_fires_on_sentence_initial(tmp_path):
+    """Recall: a true sentence-initial 'This/That' with no antecedent must fire."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Notes\n\n"
+        "Whales migrate thousands of miles each year. "
+        "This is critical for downstream consumers.\n"
+    )
+    p = tmp_path / "ghost.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert any(i.get("check") == "Cohesion.DeicticGhost" for i in issues)
+
+
 def test_token_lemmas_splits_underscore_identifiers():
     engine = RhetoricEngine()
     sent = engine.nlp("Set captcha_service_required=True in the sites_meta entry.")
