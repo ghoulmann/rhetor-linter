@@ -13,8 +13,24 @@ def _alpha_token_count(span) -> int:
     return sum(1 for t in span if getattr(t, "is_alpha", False))
 
 
+def _is_topic_eligible(para: Dict[str, Any]) -> bool:
+    """Skip non-prose blocks when picking topic / body sentences.
+
+    Admonition callouts (rewritten to BlockQuote by the engine preprocessor)
+    are advisory side-content, not the section's topic. Code fences and
+    list items are similarly non-topical.
+    """
+    nodes = para.get("nodes") or []
+    if not nodes:
+        return True
+    block_type = str(nodes[0].get("type") or "Paragraph")
+    return block_type in {"Paragraph", "RawText"}
+
+
 def _first_substantial_sentence(section: Dict[str, Any]):
     for para in section.get("paragraphs", []):
+        if not _is_topic_eligible(para):
+            continue
         for srec in para.get("sentences", []):
             span = srec.get("span")
             if span is None:
@@ -27,6 +43,8 @@ def _first_substantial_sentence(section: Dict[str, Any]):
 def _remaining_substantial_sentences(section: Dict[str, Any], skip_start: int):
     out = []
     for para in section.get("paragraphs", []):
+        if not _is_topic_eligible(para):
+            continue
         for srec in para.get("sentences", []):
             span = srec.get("span")
             if span is None:

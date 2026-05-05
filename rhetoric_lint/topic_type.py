@@ -75,8 +75,14 @@ _ERROR_CODE_RE = re.compile(
     re.I,
 )
 
-# Tutorial cues: first-person plural
-_TUTORIAL_WE_RE = re.compile(r"\b(we|let's|let us)\b", re.I)
+# Tutorial cues: stronger discourse markers than bare "we" (which appears in
+# nearly all documentation prose without being tutorial-specific). Require an
+# explicit invitation/learning frame.
+_TUTORIAL_WE_RE = re.compile(
+    r"\b(let'?s|let us|in this tutorial|you'?ll learn|by the end of this|"
+    r"we'?ll (?:walk|build|create|make|set up|deploy|write))\b",
+    re.I,
+)
 
 # Heading ends with "?" → FAQ entry
 _QUESTION_HEADING_RE = re.compile(r"\?\s*$")

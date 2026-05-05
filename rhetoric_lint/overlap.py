@@ -1,4 +1,16 @@
+import re
 from typing import Dict, Iterable, List, Mapping, Optional, Set
+
+# Identifier-like non-alpha tokens (court_scraper.scrapers, sites_meta.csv,
+# captcha_service_required) carry topical signal. spaCy emits them as a single
+# token with is_alpha=False. Split on dots/underscores/dashes and surface each
+# alphabetic component (length >= 2) as a content lemma.
+_IDENT_SPLIT_RE = re.compile(r"[._\-]")
+
+
+def _identifier_components(surface: str) -> List[str]:
+    parts = _IDENT_SPLIT_RE.split(surface.lower())
+    return [p for p in parts if len(p) >= 2 and p.isalpha()]
 
 
 def _as_segment_set(tokens: Iterable[str]) -> Set[str]:
@@ -29,6 +41,15 @@ def channelize_tokens(tokens: Iterable, pronouns: Optional[Set[str]] = None) -> 
 
     for tok in tokens:
         if not getattr(tok, "is_alpha", False):
+            # Identifier-like dotted/underscored token: emit each alphabetic
+            # component as a content + noun lemma. We classify them as nouns
+            # because identifiers are nominal in technical prose and should
+            # contribute to the argument channel for cohesion analysis.
+            surface_raw = (getattr(tok, "text", "") or "")
+            if surface_raw and any(sep in surface_raw for sep in "._-"):
+                for part in _identifier_components(surface_raw):
+                    content.add(part)
+                    nouns.add(part)
             continue
         lemma = _token_lemma(tok)
         if not lemma:

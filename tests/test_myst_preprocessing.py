@@ -248,6 +248,105 @@ def test_token_lemmas_splits_dotted_identifiers():
     assert "a" not in lemmas
 
 
+def test_terminology_drift_skips_narrow_sense_words(tmp_path):
+    """Words with <=2 WordNet synsets cannot reliably indicate drift."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Project layout\n\n"
+        "The whole project is organized into modules and test fixtures.\n\n"
+        "## Worker tasks\n\n"
+        "Each task in the queue triggers a downstream job.\n"
+    )
+    p = tmp_path / "narrow.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert not any(
+        i.get("check") == "Cohesion.TerminologyDrift" and "project" in i.get("message", "")
+        for i in issues
+    ), "project/task narrow-sense words must not trigger drift"
+
+
+def test_unity_skips_blockquote_topic(tmp_path):
+    """Admonition leads (rewritten to blockquotes) must not be picked as topic."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Storage architecture\n\n"
+        "```{note}\n"
+        "Check out the contributor guide before getting started on local setup.\n"
+        "```\n\n"
+        "The storage architecture writes thumbnails to object storage and "
+        "indexes them in a relational table for fast lookup.\n"
+    )
+    p = tmp_path / "topic.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert not any(
+        i.get("check") == "Unity.HeadingTopicCoherence" and "Storage" in i.get("message", "Storage architecture")
+        for i in issues
+    ), "Topic sentence picker must skip blockquote/admonition paragraphs"
+
+
+def test_overlap_channelize_splits_dotted_identifiers():
+    """Dotted/underscore identifiers must contribute lemmas across all rules."""
+    from rhetoric_lint.overlap import channelize_tokens
+    engine = RhetoricEngine()
+    sent = engine.nlp("The class lives in court_scraper.scrapers namespace.")
+    ch = channelize_tokens(sent)
+    assert "scraper" in ch["content"] or "scrapers" in ch["content"]
+    assert "court" in ch["content"]
+    # Components are also classified as nouns for argument-channel coverage.
+    assert "court" in ch["nouns"]
+
+
+def test_topic_type_we_alone_is_not_tutorial(tmp_path):
+    """Plain 'we' in body without learning-frame cues must not classify tutorial."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Devise a scraping strategy\n\n"
+        "Before coding, we favor scrapers that gather data using HTTP calls "
+        "rather than browser automation.\n"
+    )
+    p = tmp_path / "we.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert not any(i.get("check", "").startswith("Tutorial.") for i in issues), \
+        "Bare 'we' is not a tutorial cue"
+
+
+def test_task_orientation_counts_admonitions(tmp_path):
+    """Admonitions rewritten to blockquotes must count toward task density."""
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Build the worker container\n\n"
+        "Build the container image with the standard build script.\n\n"
+        "```{warning}\n"
+        "If the build fails, check that Docker is running before retrying.\n"
+        "```\n\n"
+        "```{note}\n"
+        "The build cache is shared across worker variants.\n"
+        "```\n\n"
+        "```bash\n"
+        "make build\n"
+        "```\n"
+    )
+    p = tmp_path / "td.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    # 2 admonitions + 1 code fence + 2 paragraphs => td = 3/5 = 0.6 > 0.3
+    assert not any(
+        i.get("check") == "Structure.TaskOrientation" and "Build the worker" in i.get("message", "")
+        for i in issues
+    )
+
+
 def test_cohesion_demonstrative_determiner_bridges(tmp_path):
     """'Such cases', 'This file', 'These X' anaphoric references should bridge."""
     md = (

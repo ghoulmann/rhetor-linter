@@ -88,19 +88,23 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
     # Cache synsets per lemma for performance
     synset_cache: Dict[str, set] = {}
 
-    # Maximum synset count for a word to be considered. Highly polysemous
-    # words (e.g., "drop" has 40+ senses, "run" has 50+) create false
-    # synonym bridges with almost anything. Limiting to words with ≤8
-    # senses keeps matches meaningful.
+    # Synset count band: highly polysemous words (e.g., "drop" has 40+ senses,
+    # "run" has 50+) create false synonym bridges with almost anything.
+    # Conversely, very narrow-sense words (≤2 synsets, e.g., "project"/"task"
+    # each with 2 senses sharing 1) hit the ratio threshold on a single
+    # coincidental WordNet overlap that doesn't reflect real synonymy in the
+    # writing's domain. Require 3-8 senses for meaningful drift detection.
+    min_synsets = 3
     max_synsets = 8
 
     def _get_cached_synsets(lemma: str) -> set:
         if lemma not in synset_cache:
             try:
                 syns = get_synsets(lemma) or set()
-                # Discard highly polysemous words — too many senses to
-                # reliably identify synonym drift.
-                synset_cache[lemma] = syns if len(syns) <= max_synsets else set()
+                if min_synsets <= len(syns) <= max_synsets:
+                    synset_cache[lemma] = syns
+                else:
+                    synset_cache[lemma] = set()
             except Exception:
                 synset_cache[lemma] = set()
         return synset_cache[lemma]

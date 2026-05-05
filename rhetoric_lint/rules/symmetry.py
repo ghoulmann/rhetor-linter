@@ -338,7 +338,10 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
         r"^(cli\b|exit\s+code|rule|reference|changelog|license|contributing|"
         r"development|appendix|glossary|faq|feature|comparison|output\s+format|"
         r"supported|compatibility|version|status|credit|acknowledgement|"
-        r"summary|recap|overview|introduction|conclusion|background|about)",
+        r"summary|recap|overview|introduction|conclusion|background|about|"
+        r"devise|strategy|strategies|approach(?:es)?|consideration(?:s)?|"
+        r"principle(?:s)?|philosophy|design|concept(?:s)?|rationale|"
+        r"theory|framework|architecture|terminology|definitions?)",
         re.I,
     )
 
@@ -370,6 +373,18 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
         code_fence_re = re.compile(r"^```.*?^```", re.M | re.DOTALL)
         code_count = len(code_fence_re.findall(section_text))
 
+        # count admonition leads — the engine rewrites MyST/MkDocs/GFM admonition
+        # syntax to blockquotes prefixed with "> **Kind:**". These carry the same
+        # instructional content (warnings, notes, tips) as the original fences and
+        # should count toward task density.
+        admonition_re = re.compile(
+            r"^[ \t]*>[ \t]*\*\*"
+            r"(?:Note|Warning|Tip|Caution|Important|Danger|Attention|Hint|Seealso)"
+            r":\*\*",
+            re.M,
+        )
+        admonition_count = len(admonition_re.findall(section_text))
+
         # count paragraphs: blocks of text separated by blank lines that are not lists/headings/code
         paras = 0
         for block in re.split(r"\n\s*\n+", section_text):
@@ -382,8 +397,8 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
             # treat as a paragraph
             paras += 1
 
-        # task_count = list items + code fences (both carry instructional content)
-        task_count = list_count + code_count
+        # task_count = list items + code fences + admonitions
+        task_count = list_count + code_count + admonition_count
         td = task_count / max(1, task_count + paras)
 
         if td < const.THRESHOLDS.get("TASK_DENSITY_RATIO", 0.3):
