@@ -12,7 +12,11 @@ from rhetoric_lint.template_type import classify_doc_template
 # Pre-processing: link reference definition lines (e.g. "[img1]: data:image/png;base64,...")
 # These are blanked out (content replaced, newline kept) before parsing so they don't
 # appear as Paragraph nodes and trigger false positives in ComplexitySpike and other rules.
-_LINK_REF_DEF_RE = re.compile(r"^\[.*?\]:\s+\S[^\n]*", re.M)
+# Link reference definitions are always single-line: "[label]: <url> [optional title]".
+# The original \s+ matched newlines too, which made the pattern greedily swallow the
+# next non-blank line — silently consuming code-fence openers and other adjacent
+# content in any doc that uses reference-style links.
+_LINK_REF_DEF_RE = re.compile(r"^\[.*?\]:[ \t]+\S[^\n]*", re.M)
 
 # Image-only paragraph detection (single-line image references with no surrounding prose)
 _IMAGE_ONLY_RE = re.compile(r"^!\[.*?\](?:\[.*?\]|\(.*?\))$", re.DOTALL)

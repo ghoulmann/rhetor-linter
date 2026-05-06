@@ -290,6 +290,41 @@ def test_unity_skips_blockquote_topic(tmp_path):
     ), "Topic sentence picker must skip blockquote/admonition paragraphs"
 
 
+def test_link_ref_def_does_not_swallow_next_line(tmp_path):
+    """Reference-style links followed by code fences must not eat the fence.
+
+    Regression for the engine's _LINK_REF_DEF_RE which used \\s+ (any
+    whitespace including newlines) and silently consumed the next non-blank
+    line — destroying the AST whenever a doc had "[label][ref]:" followed by
+    a code fence or other content.
+    """
+    md = (
+        "# Sample\n\n"
+        "Top-level overview.\n\n"
+        "## Generics\n\n"
+        "To inherit from a generic model, the subclass must inherit from\n"
+        "[`Generic`][typing.Generic]:\n\n"
+        "```python\n"
+        "from typing import Generic\n"
+        "```\n\n"
+        "Following text.\n"
+    )
+    p = tmp_path / "linkref.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    sections = engine._parse_with_mistletoe(md)
+    # Code fence content must survive intact in the section's paragraphs.
+    target = next(s for s in sections if s.get("heading") == "Generics")
+    code_para = next(
+        (p for p in target.get("paragraphs", [])
+         if (p.get("nodes") or [{}])[0].get("type") in {"Code", "CodeFence", "FencedCode"}),
+        None,
+    )
+    assert code_para is not None, \
+        "Code fence following a reference-link line was consumed by _LINK_REF_DEF_RE"
+    assert "from typing import Generic" in (code_para.get("text") or "")
+
+
 def test_overlap_channelize_splits_dotted_identifiers():
     """Dotted/underscore identifiers must contribute lemmas across all rules."""
     from rhetoric_lint.overlap import channelize_tokens
