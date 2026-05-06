@@ -14,6 +14,7 @@ from rhetoric_lint.engine import (  # noqa: E402
     _rewrite_gfm_alerts,
     _rewrite_mkdocs_admonitions,
     _rewrite_myst_admonitions,
+    _strip_inline_html,
     _strip_myst_roles,
 )
 from rhetoric_lint.rules.cohesion import _token_lemmas  # noqa: E402
@@ -288,6 +289,54 @@ def test_unity_skips_blockquote_topic(tmp_path):
         i.get("check") == "Unity.HeadingTopicCoherence" and "Storage" in i.get("message", "Storage architecture")
         for i in issues
     ), "Topic sentence picker must skip blockquote/admonition paragraphs"
+
+
+def test_strip_inline_html_preserves_offsets():
+    text = 'Before <span class="x">middle</span> after.\n'
+    out = _strip_inline_html(text)
+    # Tag bodies replaced with spaces; visible text intact.
+    assert "middle" in out
+    assert "before" in out.lower() and "after" in out
+    assert "<span" not in out and "</span>" not in out
+    # Length preserved so column offsets stay aligned.
+    assert len(out) == len(text)
+
+
+def test_strip_inline_html_skips_code_fences():
+    """HTML inside a fenced code block must not be stripped."""
+    text = "Prose <b>bold</b> here.\n\n```html\n<div class=\"foo\">x</div>\n```\n\nAfter.\n"
+    out = _strip_inline_html(text)
+    assert "<b>" not in out  # inline tag in prose stripped
+    assert '<div class="foo">' in out  # tag inside fence preserved
+    assert "</div>" in out
+
+
+def test_inline_html_paragraph_does_not_pollute_cohesion(tmp_path):
+    """A bare </div> paragraph in source must not produce a Cohesion.Break
+    against the surrounding prose after the engine HTML-strip step.
+    """
+    md = (
+        "# Sample\n\n"
+        "Top-level overview of the sample document.\n\n"
+        "## Demo\n\n"
+        '<div class="termy">\n\n'
+        "```console\n"
+        "$ run\n"
+        "```\n\n"
+        "</div>\n\n"
+        "In the output you will see the JSON response printed.\n\n"
+        "Open your browser at the local URL to view the response.\n"
+    )
+    p = tmp_path / "html.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    # The </div>/<div> "paragraphs" must not become cohesion-break partners
+    # against neighbouring real prose after preprocessing.
+    breaks = [i for i in issues if i.get("check") == "Cohesion.Break"]
+    for it in breaks:
+        msg = it.get("message", "")
+        assert "div" not in msg, f"HTML tag leaked into break msg: {msg}"
 
 
 def test_link_ref_def_does_not_swallow_next_line(tmp_path):

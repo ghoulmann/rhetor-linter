@@ -31,6 +31,17 @@ _MD_REF_LINK_RE = re.compile(r"\[([^\]]+)\]\[[^\]]*\]")
 # pipeline and cohesion/topic rules treat it as adjacent prose.
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
+# Inline HTML tags (<div>, </div>, <span style="...">, <br>, <font color=...>)
+# appear in many docs as structural decoration. Without stripping, mistletoe
+# may parse a bare "</div>" as a Paragraph containing only that tag — which
+# enters sentence-pair walks and produces zero-content "sentences" that look
+# like cohesion breaks against any real prose. The replacement is whitespace
+# of equal length so line/column offsets are preserved.
+_HTML_TAG_RE = re.compile(r"</?[a-zA-Z][^<>\n]*>")
+# Code-fence boundary: everything between matched ``` lines is left alone, so
+# HTML used as a code example doesn't get corrupted.
+_FENCE_LINE_RE = re.compile(r"^```.*$", re.M)
+
 # MyST role directives like {code}`Site`, {py:class}`...`, {ref}`label <target>`
 # leak the role name and angle-bracket target into the token stream. Strip the
 # role prefix and (for {ref}-style) the `<target>` portion, keeping the visible
@@ -151,6 +162,28 @@ def _blank_html_comments(text: str) -> str:
     def _blank(m: "re.Match[str]") -> str:
         return "".join("\n" if c == "\n" else " " for c in m.group(0))
     return _HTML_COMMENT_RE.sub(_blank, text)
+
+
+def _strip_inline_html(text: str) -> str:
+    """Replace inline HTML tags with spaces, preserving line/column offsets.
+
+    Skips content inside fenced code blocks so HTML used as a code example is
+    not corrupted. The fence line itself is preserved verbatim.
+    """
+    def _blank(m: "re.Match[str]") -> str:
+        return " " * len(m.group(0))
+    out_lines = []
+    in_fence = False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            out_lines.append(line)
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            out_lines.append(line)
+        else:
+            out_lines.append(_HTML_TAG_RE.sub(_blank, line))
+    return "\n".join(out_lines)
 
 
 def _strip_myst_roles(text: str) -> str:
@@ -670,6 +703,10 @@ class RhetoricEngine:
             text = _rewrite_mkdocs_admonitions(text)
             text = _rewrite_gfm_alerts(text)
             text = _strip_myst_roles(text)
+            # Strip inline HTML last so admonition rewrites (which never produce
+            # tags) and role strips run on intact text first. Code-fence content
+            # is left alone by design.
+            text = _strip_inline_html(text)
 
             nlp_text = text
             if len(text) > const.NLP_MAX_CHARS:
