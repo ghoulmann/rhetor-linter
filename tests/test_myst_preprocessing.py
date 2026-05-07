@@ -13,7 +13,9 @@ from rhetoric_lint.engine import (  # noqa: E402
     _blank_html_comments,
     _rewrite_gfm_alerts,
     _rewrite_mkdocs_admonitions,
+    _rewrite_mkdocs_tabs,
     _rewrite_myst_admonitions,
+    _rewrite_pymdownx_block_admonitions,
     _strip_inline_html,
     _strip_myst_roles,
 )
@@ -289,6 +291,102 @@ def test_unity_skips_blockquote_topic(tmp_path):
         i.get("check") == "Unity.HeadingTopicCoherence" and "Storage" in i.get("message", "Storage architecture")
         for i in issues
     ), "Topic sentence picker must skip blockquote/admonition paragraphs"
+
+
+def test_pymdownx_block_admonition_rewrites():
+    text = (
+        "intro\n\n"
+        "/// note | Technical Details\n"
+        "FastAPI inherits directly from Starlette.\n"
+        "Use any Starlette functionality with FastAPI too.\n"
+        "///\n\n"
+        "after\n"
+    )
+    out = _rewrite_pymdownx_block_admonitions(text)
+    assert out.count("\n") == text.count("\n")
+    assert "Note" in out
+    assert "Technical Details" in out
+    assert "FastAPI inherits directly from Starlette" in out
+    # Open and close markers gone.
+    assert "/// note" not in out
+    assert "\n///\n" not in out
+
+
+def test_pymdownx_block_admonition_no_title():
+    text = "/// warning\nDanger!\n///\n"
+    out = _rewrite_pymdownx_block_admonitions(text)
+    assert "Warning" in out
+    assert "Danger!" in out
+    assert "///" not in out
+
+
+def test_pymdownx_admonition_satisfies_resilience(tmp_path):
+    md = (
+        "# Image processing pipeline\n\n"
+        "Top-level overview of the pipeline.\n\n"
+        "## Deploy the worker\n\n"
+        "1. Build the image.\n"
+        "2. Push to the registry.\n"
+        "3. Apply the manifest.\n\n"
+        "/// warning\n"
+        "If the registry push fails, abort and notify the on-call engineer.\n"
+        "///\n"
+    )
+    p = tmp_path / "pymdownx.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    issues = engine.lint_files([str(p)])
+    assert not any(
+        i.get("check") == "Resilience.ErrorPathPresence"
+        and "Deploy the worker" in i.get("message", "")
+        for i in issues
+    )
+
+
+def test_mkdocs_tabs_rewrite_preserves_line_count():
+    text = (
+        "intro\n\n"
+        '=== "Python 3.12 and above"\n'
+        "\n"
+        "    First-tab body line one.\n"
+        "    First-tab body line two.\n"
+        "\n"
+        '=== "Python 3.11"\n'
+        "\n"
+        "    Second-tab body line.\n"
+        "\n"
+        "after\n"
+    )
+    out = _rewrite_mkdocs_tabs(text)
+    assert out.count("\n") == text.count("\n")
+    # Tab titles surface as bold leads.
+    assert "Python 3.12 and above" in out
+    assert "Python 3.11" in out
+    # Body content survives.
+    assert "First-tab body line one" in out
+    assert "Second-tab body line" in out
+    # Marker gone.
+    assert '=== "' not in out
+
+
+def test_mkdocs_tabs_does_not_consume_unindented_following_para(tmp_path):
+    md = (
+        "# Sample\n\n"
+        "Top-level overview.\n\n"
+        "## Demo\n\n"
+        '=== "Tab one"\n'
+        "    Body line of first tab.\n"
+        "\n"
+        "Subsequent paragraph that must remain outside the tab body.\n"
+    )
+    p = tmp_path / "tabs.md"
+    p.write_text(md, encoding="utf-8")
+    engine = RhetoricEngine()
+    sections = engine._parse_with_mistletoe(md)
+    target = next(s for s in sections if s.get("heading") == "Demo")
+    para_texts = [(p.get("text") or "") for p in target.get("paragraphs", [])]
+    # The trailing paragraph must still exist at section-paragraph level.
+    assert any("Subsequent paragraph" in t for t in para_texts)
 
 
 def test_strip_inline_html_preserves_offsets():

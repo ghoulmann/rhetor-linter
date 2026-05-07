@@ -75,6 +75,42 @@ def _rewrite_myst_admonitions(text: str) -> str:
     return _MYST_ADMONITION_RE.sub(_rewrite, text)
 
 
+# pymdownx.blocks.admonition syntax (used in FastAPI docs and some other
+# projects):
+#   /// kind | Title text
+#   Body content at column 0.
+#   ///
+# Closed by a line containing only "///". Differs from MkDocs Material
+# !!!-style admonitions in that the body is NOT indented. Rewrite the open
+# line to "> **Kind:** [title]", body lines to "> body", and the close line
+# to blank — same line count.
+_PYMDOWNX_BLOCK_RE = re.compile(
+    r"^(?P<indent>[ \t]*)/// "
+    r"(?P<kind>[a-zA-Z][\w-]*)"
+    r"(?:[ \t]*\|[ \t]*(?P<title>[^\n]+?))?[ \t]*\n"
+    r"(?P<body>.*?)\n"
+    r"(?P=indent)///[ \t]*$",
+    re.DOTALL | re.M,
+)
+
+
+def _rewrite_pymdownx_block_admonitions(text: str) -> str:
+    """Rewrite "/// kind | Title ... ///" blocks to blockquotes."""
+    def _rewrite(m: "re.Match[str]") -> str:
+        indent = m.group("indent")
+        kind = m.group("kind").capitalize()
+        title = m.group("title")
+        body_lines = m.group("body").split("\n")
+        lead = f"{indent}> **{kind}:**"
+        if title:
+            lead = f"{lead} {title.strip()}"
+        out_lines = [lead]
+        out_lines.extend(f"{indent}> {line}" for line in body_lines)
+        out_lines.append("")  # was close line
+        return "\n".join(out_lines)
+    return _PYMDOWNX_BLOCK_RE.sub(_rewrite, text)
+
+
 # MkDocs Material admonitions: "!!! kind [\"title\"]" or "??? kind" / "???+ kind"
 # (collapsible) followed by indented body lines. Mistletoe does not understand
 # this syntax — the marker line is a plain paragraph and the indented body is
@@ -123,6 +159,48 @@ def _rewrite_mkdocs_admonitions(text: str) -> str:
             stripped_len = len(line) - len(line.lstrip())
             if stripped_len > len(base_indent):
                 # Body line — strip extra indent past the marker, prefix with "> ".
+                body_text = line[len(base_indent):].lstrip()
+                out.append(f"{base_indent}> {body_text}")
+                i += 1
+                continue
+            break
+    return "\n".join(out)
+
+
+# MkDocs Material content tabs (pymdownx.tabbed): consecutive `=== "Title"`
+# markers each followed by indented body. Sibling tabs typically present
+# alternative-but-equivalent content (e.g. Python 3.10 vs 3.12). Rewrite the
+# marker to a bolded blockquote lead and de-indent the body — body content
+# becomes visible to lemma/cohesion analysis without the marker line being a
+# zero-content sentence.
+_MKDOCS_TAB_MARKER_RE = re.compile(
+    r"^(?P<indent>[ \t]*)===\+?[ \t]+\"(?P<title>[^\"]*)\"[ \t]*$"
+)
+
+
+def _rewrite_mkdocs_tabs(text: str) -> str:
+    """Rewrite `=== \"Title\"` tab markers and their indented bodies to blockquotes."""
+    lines = text.split("\n")
+    out: list = []
+    i = 0
+    while i < len(lines):
+        m = _MKDOCS_TAB_MARKER_RE.match(lines[i])
+        if not m:
+            out.append(lines[i])
+            i += 1
+            continue
+        base_indent = m.group("indent")
+        title = m.group("title")
+        out.append(f"{base_indent}> **{title}**")
+        i += 1
+        while i < len(lines):
+            line = lines[i]
+            if not line.strip():
+                out.append(line)
+                i += 1
+                continue
+            stripped_len = len(line) - len(line.lstrip())
+            if stripped_len > len(base_indent):
                 body_text = line[len(base_indent):].lstrip()
                 out.append(f"{base_indent}> {body_text}")
                 i += 1
@@ -700,7 +778,9 @@ class RhetoricEngine:
             # unconditionally without flavor detection.
             text = _blank_html_comments(text)
             text = _rewrite_myst_admonitions(text)
+            text = _rewrite_pymdownx_block_admonitions(text)
             text = _rewrite_mkdocs_admonitions(text)
+            text = _rewrite_mkdocs_tabs(text)
             text = _rewrite_gfm_alerts(text)
             text = _strip_myst_roles(text)
             # Strip inline HTML last so admonition rewrites (which never produce
