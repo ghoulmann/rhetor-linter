@@ -30,30 +30,83 @@
 ## Dependency graph
 
 ```
-SP1: Runner Infrastructure + Fix Framework
- ├── SP2: Vale Core (existence + substitution) + fixes
- │    ├── SP4: Vale Extended Types (+ sequence/NLP)
+SP1: Runner Infrastructure + Fix Framework + CrossFileContext stub
+ ├── SP2: Vale Core (existence + substitution)
+ │    ├── SP4: Vale Extended Types (+ _readability.py)
+ │    │    └── SP9: ProsePartner Gaps (also needs SP8)
  │    ├── SP6: Rhetoric YAML Migration (TrivializingLanguage)
- │    └── SP7: Rhetoric YAML Additions (Terminology, Inclusivity)
- ├── SP3: markdownlint Native Rules + fixes
+ │    ├── SP7: Rhetoric YAML Additions (Terminology, Inclusivity)
+ │    └── SP_SPELL: Vale spelling rule type
+ ├── SP3: markdownlint Native Rules
  │    └── SP5: markdownlint-cli2 Python Custom Rule Extension
- └── SP8: NLP Rule Expansion (spaCy rules)
-      └── SP9: ProsePartner Gaps (passive+actor, rhythm, readability, unsupported-claim)
+ ├── SP8: NLP Rule Expansion (5 rules + TabVariantBalance)
+ │    └── SP9: ProsePartner Gaps (also needs SP4)
+ └── CrossFileContext (from SP1)
+      ├── SP10: DependencyReveal
+      └── SP11: ConceptReintroductionPenalty
+
+Independent (after SP1 CLI stable):
+ └── SP_CI: Pre-commit + GitHub Actions
+
+Independent (any time):
+ └── SP_CONTRAST: Rhetoric.UnresolvedContrast
 ```
 
 | # | Subplan | Depends on |
 |---|---|---|
-| SP1 | Runner infrastructure + fix framework | — |
+| SP1 | Runner infrastructure + fix framework + CrossFileContext stub | — |
 | SP2 | Vale core types (existence + substitution) | SP1 |
 | SP3 | markdownlint native MD rules | SP1 |
 | SP4 | Vale extended types (occurrence … sequence/NLP) | SP2 |
 | SP5 | markdownlint-cli2 Python custom rule extension | SP3 |
 | SP6 | Migrate TrivializingLanguage to Vale YAML | SP2 |
 | SP7 | Rhetoric YAML additions (Terminology, Inclusivity) | SP2 |
-| SP8 | NLP rule expansion (5 spaCy rules) | SP1 |
+| SP8 | NLP rule expansion (5 spaCy rules + TabVariantBalance) | SP1 |
 | SP9 | ProsePartner gaps (4 rules) | SP8, SP4 |
+| SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 |
+| SP_CI | Pre-commit + GitHub Actions integration | SP1 |
+| SP_CONTRAST | Rhetoric.UnresolvedContrast | — |
+| SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) |
+| SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) |
 
-SP2 + SP3 + SP8 start together after SP1. SP9 waits for both SP8 (NLP patterns) and SP4 (`_readability.py` shared module).
+SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1).
+
+---
+
+## Implementation sequence
+
+```
+Tier 0 — Infrastructure (unblocks everything)
+  SP1: StyleRunner ABC + fix.py + engine wiring + --fix flag + CrossFileContext stub
+
+Tier 1 — Core runners (parallel after SP1)
+  SP2:         Vale existence + substitution + AST scoping + genre gating
+  SP3:         markdownlint native rules (12 rules) + inline suppression
+  SP8:         NLP rules — SyntacticDepth, Nominalizations, MetricDensity,
+               ToneImbalance, Terminology, TabVariantBalance
+  SP_CI:       .pre-commit-hooks.yaml + GH Actions workflow + docs/ci-integration.md
+  SP_CONTRAST: Rhetoric.UnresolvedContrast in rhetoric.py
+
+Tier 2 — Extensions (parallel after Tier 1)
+  SP4:      Vale extended types + _readability.py shared module
+  SP5:      markdownlint-cli2 Python custom rule extension
+  SP6:      Migrate TrivializingLanguage to Vale YAML
+  SP_SPELL: Vale spelling rule type (spylls optional dep)
+
+Tier 3 — Depends on Tier 2
+  SP9: ProsePartner gaps — PassiveVoiceActorGap, SentenceRhythm,
+       ReadabilityGrade, UnsupportedClaim (needs SP4 + SP8)
+  SP7: Rhetoric YAML additions — Terminology.yml, Inclusivity.yml
+
+Backlog — Blocked on CrossFileContext (from SP1)
+  SP10: DependencyReveal
+  SP11: ConceptReintroductionPenalty
+
+Roadmap (design notes only — see end of document)
+  Cognitive Jump Distance, Intent-Artifact Closure, Narrative Compression Ratio,
+  Taxonomy Alignment, Code-Prose Alignment, Interface Surface Coverage,
+  Procedural State Machine, Retrieval Anchor Density
+```
 
 ---
 
@@ -76,7 +129,7 @@ Add `apply_fixes(path: str, findings: list[dict]) -> int` utility in `rhetoric_l
 - `rhetoric_lint/fix.py` — `apply_fixes(path, findings)` and `_apply_line_fix(line_text, fix) → str`
 
 **Modify:**
-- `rhetoric_lint/engine.py` — `self._runners: list[StyleRunner]`, `_init_runners(config)`, runner dispatch after Python rules
+- `rhetoric_lint/engine.py` — `self._runners: list[StyleRunner]`, `_init_runners(config)`, runner dispatch after Python rules; add `CrossFileContext` class (`term_first_seen: dict[str, tuple[str,str]]`, `concept_definitions: dict[str,list[str]]`, `scan(paths, nlp) -> None`); `lint_files()` instantiates and populates it before the per-file loop and passes it as `context["cross_file"]`
 - `rhetoric_lint/main.py`:
   - `--style-dir PATH` (repeatable)
   - `--style NAME` (comma-separated; empty = all)
@@ -100,6 +153,10 @@ Add `apply_fixes(path: str, findings: list[dict]) -> int` utility in `rhetoric_l
 - `--fix` on read-only file: error message, no crash
 - Empty findings list: no-op
 - Finding without `fix` key: skipped silently
+- `context["cross_file"]` is present and not None in every per-file context dict
+- `CrossFileContext.scan()` on empty path list: no crash, empty dicts
+- `CrossFileContext.scan()` with two fixture files: `term_first_seen` populated with at least one entry
+- Rules that don't read `context["cross_file"]`: no breakage
 
 ### Verification
 ```bash
