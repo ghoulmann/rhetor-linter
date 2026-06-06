@@ -923,3 +923,283 @@ python -m pytest tests/ -v
 rhetoric-lint --format json tests/fixtures/test_generic.md \
   | python -c "import json,sys; [print(m['Check']) for f in json.load(sys.stdin) for m in f['Matches'] if any(k in m['Check'] for k in ('Passive','Rhythm','Readability','Claim'))]"
 ```
+
+---
+
+## SP_SPELL — Vale `spelling` Rule Type
+
+**Goal:** Implement `extends: spelling` in `vale_style.py` (created by SP2) using `spylls` as an optional pure-Python Hunspell backend. Completes Vale rule type coverage. Depends on SP2.
+
+### Dependency addition
+
+**`pyproject.toml`**: `[project.optional-dependencies]` → `spell = ["spylls"]`
+**`Pipfile`**: add `spylls` as optional in `[packages]`
+
+Install: `pip install rhetoric-lint[spell]`
+
+### Vale `spelling` YAML fields to support
+
+| Field | Meaning |
+|---|---|
+| `extends: spelling` | rule type selector |
+| `dicpath` | dir containing `.aff`/`.dic` files, relative to the style dir |
+| `dictionaries` | list of dict names without extension (e.g., `en_US`) |
+| `custom: true` | use only named dicts, no bundled base dict |
+| `append: false` | don't merge project `vocabularies/` accept.txt |
+| `ignore` | path(s) to plain-text word lists (one word per line) |
+| `action: {name: suggest}` | populate `suggestions` list in finding |
+| `message` | format string with `%s` for the flagged word |
+| `level` | error/warning/suggestion |
+
+### Implementation in `rhetoric_lint/runners/vale_style.py`
+
+```python
+try:
+    from spylls.hunspell import Dictionary as HunspellDict
+    _SPYLLS_AVAILABLE = True
+except ImportError:
+    _SPYLLS_AVAILABLE = False
+
+_spell_cache: dict[tuple[str, str], "HunspellDict"] = {}
+```
+
+Add `_check_spelling(self, rule, scope_texts, context)` method; dispatch `"spelling"` case in `_apply_rule()`.
+
+Key logic:
+1. Graceful degradation: if `_SPYLLS_AVAILABLE` is False, emit one `suggestion`-level meta-finding per file instructing the user to install `rhetoric-lint[spell]`.
+2. Resolve `.aff`/`.dic` paths: `dicpath` relative to rule YAML dir; fallback = rule YAML dir.
+3. Load/cache: `_spell_cache[(resolved_dicpath, dict_name)] = HunspellDict(aff_path)`.
+4. Build ignore set: `rule["ignore"]` word-list files + `accept.txt` if `append != False`.
+5. Build filter patterns: `[re.compile(p) for p in rule.get("filters", [])]`.
+6. Per `(text, line_offset)` in scope_texts (AST-scoped, already code-free): tokenize with `re.findall(r"[a-zA-Z''\-]+", text)`; for each word skip if in ignore set, matches filter, or any dict lookup passes; emit finding; if `action == suggest`, populate `suggestions = dict.suggest(word)[:3]`.
+
+AST-aware scoping (inherited from SP2) automatically excludes code fences, inline code, URLs, link hrefs.
+
+### Files
+
+**Modify:**
+- `rhetoric_lint/runners/vale_style.py` — add `_SPYLLS_AVAILABLE` guard, `_spell_cache`, `_check_spelling()`, dispatch case
+- `pyproject.toml` — add `spell` optional dep group
+- `Pipfile` — add optional `spylls`
+
+### Tests (add to `tests/test_vale_style_runner.py`)
+
+- Correctly spelled word → no finding
+- Misspelled word → finding with correct check name, line, column
+- Word in `ignore` list → no finding
+- Word matched by `filters` regex → no finding
+- `action: {name: suggest}` → finding includes `suggestions` key, ≤ 3 entries
+- `en-GB` dict: `"colour"` → no finding; `"color"` → finding
+- `custom: true` + unknown word → finding (no fallback)
+- `vocab: true` accept.txt word → suppressed (shared SP2 vocab logic)
+- `spylls` absent (mock `_SPYLLS_AVAILABLE = False`) → one meta-finding per file, no crash
+- `.aff`/`.dic` not found → warning logged, rule skipped, no crash
+- Word in inline code span in prose → not checked (AST scope exclusion)
+
+### Verification
+```bash
+pip install spylls
+rhetoric-lint --style-dir style-sets/ --style Spelling --format line tests/fixtures/test_generic.md
+python -m pytest tests/test_vale_style_runner.py -v -k spelling
+python -m pytest tests/ -v
+```
+
+---
+
+## SP_CI — Pre-commit + GitHub Actions
+
+**Goal:** Wire the stable CLI into pre-commit and GitHub Actions. No Python source changes. Depends on SP1 (CLI stable).
+
+### Files to create
+
+**`.pre-commit-hooks.yaml`** (repo root):
+```yaml
+- id: rhetoric-lint
+  name: rhetoric-lint
+  language: python
+  entry: rhetoric-lint
+  types: [markdown]
+  pass_filenames: true
+  additional_dependencies:
+    - "spacy[en_core_web_sm]"
+```
+
+**`.github/workflows/rhetoric-lint.yml`**:
+```yaml
+name: rhetoric-lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cache spaCy model
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/lib/python3.12/site-packages/en_core_web_sm
+          key: spacy-en-core-web-sm-${{ runner.os }}
+      - run: pip install rhetoric-lint
+      - run: python -m spacy download en_core_web_sm
+      - run: rhetoric-lint --min-severity warning docs/
+```
+
+**`docs/ci-integration.md`** — guide covering pre-commit setup, GitHub Actions, exit codes (0/1/2), and `--ignore` pattern usage. Keep under 100 lines.
+
+### Verification
+```bash
+python -c "import yaml; yaml.safe_load(open('.pre-commit-hooks.yaml'))"
+rhetoric-lint --min-severity error tests/fixtures/corpus/technical/
+```
+
+---
+
+## SP_CONTRAST — `Rhetoric.UnresolvedContrast`
+
+**Goal:** Detect paragraphs using contrast signal words without a following resolution signal. Independent of all other SPs.
+
+**Constraint:** Full RST analysis is out of scope (see global constraint 10). This rule covers the Contrast discourse relation only.
+
+### Implementation in `rhetoric_lint/rules/rhetoric.py`
+
+Add `_unresolved_contrast_check(context)` alongside existing helpers; call from `check()`.
+
+**Contrast signals** (sentence-initial or clause-initial; position < 30% of sentence length):
+```python
+CONTRAST_SIGNALS = [
+    "however", "but", "although", "nevertheless", "on the other hand",
+    "on the contrary", "in contrast", "by contrast", "even so", "yet",
+    "despite", "nonetheless", "that said", "while", "whereas",
+    "notwithstanding",
+]
+```
+
+Note: overlaps with `const.SIGNPOSTS["adversative"]` but has different membership. Use a separate `CONTRAST_SIGNALS` const, not SIGNPOSTS.
+
+**Resolution signals** (within rest of contrast sentence + next sentence):
+```python
+CONTRAST_RESOLUTION_SIGNALS = [
+    "therefore", "thus", "so", "as a result", "consequently", "this means",
+    "which means", "instead", "rather", "still", "ultimately", "in practice",
+    "in fact", "the key point", "the solution", "to address this",
+]
+```
+
+**Logic:**
+1. Per paragraph using `paragraph["sentences"]`.
+2. Skip if `len(sentences) < CONTRAST_MIN_SENTENCES` (default 3).
+3. For each sentence with contrast signal at position < 30% of sentence length: check rest of sentence + next sentence for resolution signal; no resolution → emit finding at contrast sentence's line.
+4. Cap at `CONTRAST_UNRESOLVED_MAX_PER_PARA` (default 2) per paragraph.
+5. Genre gate: fires only in `concept`, `explanation`, `technical`, `general`. Skip `howto`, `tutorial`, `adr`, `reference`, `postmortem`.
+
+### `const.py` additions
+```python
+CONTRAST_SIGNALS = [...]
+CONTRAST_RESOLUTION_SIGNALS = [...]
+CONTRAST_UNRESOLVED_MAX_PER_PARA = 2
+CONTRAST_MIN_SENTENCES = 3
+```
+
+### Rule registration
+- `RULE_SEVERITY_LEVELS["Rhetoric.UnresolvedContrast"] = "suggestion"`
+- `RULE_DESCRIPTIONS["Rhetoric.UnresolvedContrast"] = "Contrast signal without resolution"`
+- Add row to `README.md` rules table.
+
+### Files
+
+**Modify:**
+- `rhetoric_lint/rules/rhetoric.py` — add `_unresolved_contrast_check()`, call from `check()`
+- `rhetoric_lint/const.py` — add constants above
+- `README.md` — add rules table row
+
+### Tests (add to `tests/test_rhetoric_new_rules.py`)
+
+- "However, X. Therefore, Y. Z." (≥3 sentences, resolved) → no finding
+- "However, X. Y. Z." (≥3 sentences, unresolved) → finding
+- "But X." (< 3 sentences) → no finding (min-sentence guard)
+- Contrast signal mid-sentence (position > 30%) → no finding
+- Genre `howto` → no finding (genre gate)
+- Genre `concept` → finding
+- **Precision corpus**: zero findings on `tests/fixtures/corpus/technical/`
+
+### Verification
+```bash
+python -m pytest tests/test_rhetoric_new_rules.py -v -k contrast
+python -m pytest tests/ -v
+rhetoric-lint --rules Rhetoric.UnresolvedContrast --format text tests/fixtures/test_generic.md
+```
+
+---
+
+## SP10 — DependencyReveal *(blocked on CrossFileContext)*
+
+**Goal:** Flag tool/concept references in a file that are used before they are defined anywhere in the scanned file set.
+
+**Blocked on:** `CrossFileContext` (delivered in SP1). Do not implement until SP1 is complete and `context["cross_file"]` is populated.
+
+**Design:**
+- `CrossFileContext.term_first_seen` maps each term to the file and section heading where it first appears.
+- Rule reads `context["cross_file"].term_first_seen`; for each proper noun or key noun phrase in the current file, flags if the current file appears earlier in the scan order than the file where the term is first defined.
+- Genre gate: fires in all genres except `reference`.
+
+**False positive controls:**
+
+| Scenario | Expected | Suppression |
+|---|---|---|
+| Term defined in glossary file, used everywhere | No finding | Glossary-origin terms exempt |
+| Term first seen in 1-sentence mention (not a definition) | No finding | Definition requires ≥ 2 sentences containing the term |
+| ADR + tutorial both explain "JWT" | No finding | Genre-pair exemption for `adr` + `tutorial` |
+
+---
+
+## SP11 — ConceptReintroductionPenalty *(blocked on CrossFileContext)*
+
+**Goal:** Flag sections in different files that re-explain the same concept (Jaccard ≥ 0.60 on content lemma sets).
+
+**Blocked on:** `CrossFileContext` (delivered in SP1).
+
+**Design:**
+- Uses `set_overlap_metrics()` from `rhetoric_lint/overlap.py` (already exported) with a 0.60 Jaccard threshold on section lemma sets — same algorithmic approach as the composable duplicate detection in `overlap.py`.
+- Two sections in different files with Jaccard ≥ 0.60 on content lemma sets qualify as redundant reintroductions.
+- `CrossFileContext.concept_definitions` maps term → list of files.
+
+**False positive controls:**
+
+| Scenario | Expected | Suppression |
+|---|---|---|
+| Same concept at different abstraction levels | No finding | Require Jaccard ≥ 0.60 on **content** lemma sets, not just term co-occurrence |
+| ADR + tutorial both explain the same term | No finding | Genre-pair exemption: `adr` + `tutorial` pairings don't trigger |
+
+---
+
+## Roadmap design notes *(implementation TBD)*
+
+Design decisions captured here for when these features are scheduled.
+
+### `CODE_LANGUAGE_ALIASES` (for Code-Prose Alignment + Interface Surface Coverage)
+
+Add to `const.py`:
+```python
+CODE_LANGUAGE_ALIASES = {
+    "ts": "typescript", "py": "python", "golang": "go",
+    "js": "javascript", "c++": "cpp", "rb": "ruby",
+}
+```
+Normalize fenced code block language tags before extracting tool/flag names for prose matching.
+
+### Procedural State Machine
+
+Detect nested ordered lists (ordered list item whose `nodes` contain a child ordered list) as sub-procedures. Validate inner lists independently for imperative form using the same `HowTo.NonImperativeStep` logic. The `nodes` list in each paragraph already carries `list_type` metadata — no new parsing needed.
+
+### Remaining roadmap features (prioritized)
+
+- Cognitive Jump Distance (paragraph-level TF-IDF centroid drop)
+- Intent-Artifact Closure
+- Narrative Compression Ratio
+- Taxonomy Alignment (H2/H3 vs controlled vocabulary)
+- Code-Prose Alignment (uses `CODE_LANGUAGE_ALIASES`)
+- Interface Surface Coverage (CLI flags in code blocks → prose explanation)
+- Procedural State Machine (nested ordered list sub-procedure validation)
+- Retrieval Anchor Density
