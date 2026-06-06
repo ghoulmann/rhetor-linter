@@ -707,6 +707,33 @@ Python layer only — case enforcement for proper nouns that Vale substitution c
 
 **Edge case tests:** `"github"` when required form is `"GitHub"` → finding; `"GitHub"` correct case → no finding; `"github.com"` (URL) → no finding; term in code span `` `github` `` → no finding; empty `required_form:` list → no findings.
 
+### 6. `rules/symmetry.py` → `Symmetry.TabVariantBalance`
+
+Content tabs (`=== "Tab"` blocks) rewritten to blockquotes by the engine preprocessor should have symmetric ordered list item counts across variants.
+
+- Detect tab boundaries by scanning preprocessed text for the pymdownx rewrite pattern (blockquote with bold tab title, produced by the `///` rewriter in commit 8e5de0c).
+- Count ordered list items (`nodes` with `list_type == "ol"`) per tab variant.
+- If `max(step_count) - min(step_count) > TAB_VARIANT_STEP_TOLERANCE` across ≥ 2 variants → `warning`.
+- Skip sections where all tab variants contain only code blocks (reference-style tabs).
+- `GENRES = frozenset({"technical", "general"})`
+
+**False positive controls:**
+
+| Scenario | Expected | Suppression |
+|---|---|---|
+| Single tab | No finding | `len(tab_variants) < 2` guard |
+| Two tabs, code-only | No finding | Skip if max OL item count == 0 |
+| Two tabs, 3 vs 4 steps | No finding | `max - min <= TAB_VARIANT_STEP_TOLERANCE` |
+| Tabs in reference section | No finding | `topic_type == "reference"` skip |
+| Tabs rewritten but no step content | No finding | Zero step count → skip |
+
+**Tests (in `tests/test_nlp_rules_expansion.py`):**
+- Two tabs, same step count → no finding
+- Two tabs, 4 steps vs 2 steps → finding
+- Two tabs, 3 steps vs 4 steps → no finding (within tolerance)
+- Single tab → no finding
+- Two tabs, code-only → no finding
+
 ### Files
 
 **Create:**
@@ -718,7 +745,8 @@ Python layer only — case enforcement for proper nouns that Vale substitution c
 - `tests/test_nlp_rules_expansion.py`
 
 **Modify:**
-- `rhetoric_lint/const.py` — all new thresholds and lexicons listed above
+- `rhetoric_lint/rules/symmetry.py` — add `_tab_variant_balance_check(context)`, called from `check()`
+- `rhetoric_lint/const.py` — all new thresholds and lexicons listed above, plus `TAB_VARIANT_STEP_TOLERANCE = 1`
 
 ### Verification
 ```bash
