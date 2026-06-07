@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `rhetoric-lint score` CLI subcommand: runs a full lint pass and outputs dimension scores (Clarity, Structure, Completeness, Style, Readability) as JSON with per-1000-word densities; always exits 0
+- `RhetoricEngine.last_doc_templates` and `last_word_counts` — per-file metadata persisted after each `lint_files()` call, used by `score_file()`
+- `score_file()` accepts optional `word_count` kwarg for callers that have pre-computed token counts
 - `extends: spelling` Vale rule type via `spylls` optional dependency (`pip install 'rhetoric-lint[spell]'`)
 - `style-sets/Spelling/` — US English spell-checking with pre-built `vocab/aws.txt` (~80 AWS service/tool names) and `vocab/tech.txt` (~200 general tech terms)
 - `const.DIMENSION_MAP` — maps five scoring dimensions (Clarity, Structure, Completeness, Style, Readability) to rule-check prefixes; `DIMENSION_DEFAULT = "Style"` fallback
@@ -42,6 +45,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Corpus labels updated from `technical` to Diataxis genres across 45 documents
 
 ### Fixed
+- `score.py`: `{**dimension_map, dimension_default}` syntax error (was never imported by tests; caught on first CLI run)
 - Lexi NaN guard: `coleman_liau_index` NaN now clamps to 0.0 matching Rebilly/lexi reference behaviour
 - Exception matching in existence/substitution rules now searches full line text (not just matched token), fixing multi-word exceptions like `lame duck`
 - `_blank_html_comments` no longer strips section annotation blocks (F1 pre-pass runs first)

@@ -539,6 +539,9 @@ class RhetoricEngine:
         self.parse_with_mistletoe = True
         # genre detected per file during the last lint_files() call
         self.last_genres: Dict[str, str] = {}
+        # doc template and word count stored for score_file() callers
+        self.last_doc_templates: Dict[str, str] = {}
+        self.last_word_counts: Dict[str, int] = {}
         # external style runners (Vale YAML, markdownlint, etc.)
         self._runners: List[StyleRunner] = []
         # load rule modules — attach GENRES frozenset to each check function
@@ -1026,6 +1029,10 @@ class RhetoricEngine:
 
             # Classify doc template (platform/product sub-types within technical)
             doc_template = classify_doc_template(sections, text, const)
+            self.last_doc_templates[path] = doc_template
+            self.last_word_counts[path] = len(
+                [t for t in doc if not t.is_space and not t.is_punct]
+            ) if doc else 0
 
             context = {
                 "path": path,

@@ -28,17 +28,24 @@ class ScoreResult:
     badge_suppressed: bool = False  # True when word_count < const.SCORE_MIN_WORDS
 
 
-def score_file(path: str, findings: list[dict], context: dict) -> ScoreResult:
+def score_file(
+    path: str,
+    findings: list[dict],
+    context: dict,
+    word_count: int | None = None,
+) -> ScoreResult:
     """
     Compute a ScoreResult from a completed lint pass.
 
-    Called by the server only. Never called by rules or runners.
-    context must contain: 'genre', 'doc_template', 'doc' (spaCy Doc or None).
+    Called by the server or CLI score command. Never called by rules or runners.
+    context must contain: 'genre', 'doc_template'.
+    word_count: pre-computed token count; if None, derived from context['doc'].
     """
     from rhetoric_lint import const
 
-    doc = context.get("doc")
-    word_count = len([t for t in doc if not t.is_space and not t.is_punct]) if doc else 0
+    if word_count is None:
+        doc = context.get("doc")
+        word_count = len([t for t in doc if not t.is_space and not t.is_punct]) if doc else 0
 
     badge_suppressed = word_count < const.SCORE_MIN_WORDS
 
@@ -64,7 +71,7 @@ def score_file(path: str, findings: list[dict], context: dict) -> ScoreResult:
             finding_count=counts.get(dim, 0),
             density=round(counts.get(dim, 0) / denominator * 1000, 2),
         )
-        for dim in {**dimension_map, dimension_default}
+        for dim in (set(dimension_map) | {dimension_default})
     }
 
     return ScoreResult(
