@@ -119,16 +119,15 @@ TODO
   Enterprise platform design — adversarial review findings (2026-06-07)
   Must resolve before any server/scoring implementation begins:
 
-  [FATAL F1] Section annotation syntax incompatible with HTML comment stripper.
-    `_HTML_COMMENT_RE` (re.DOTALL) at engine.py:846 blanks `<!--\n---\nyaml\n---\n-->`
-    before classify_section_topic() runs at line 903. Fix: dedicated annotation-parse
-    pass before _blank_html_comments(); cache annotations keyed by line number.
+  ✅ [FATAL F1] FIXED (2026-06-07). `_extract_section_annotations()` runs on raw text
+    before `_blank_html_comments()`; results stored in `context["section_annotations"]`
+    keyed by 1-based heading line number; `sec["annotation"]` and `sec["topic_type"]`
+    override set per-section. Tests in `tests/test_f1_f2_f5.py`.
 
-  [FATAL F2] Frontmatter YAML is discarded — metadata model has no implementation path.
-    engine.py:829-833 replaces frontmatter with blank lines, throws away content.
-    context has no frontmatter, topic_type, owner, sdlc_phase, audience, tags, author.
-    Fix: parse with PyYAML before blanking; store parsed dict in context["frontmatter"].
-    Prerequisite for: topic_type priority stack, all metadata facets, owner→Backstage mapping.
+  ✅ [FATAL F2] FIXED (2026-06-07). `_parse_frontmatter()` runs on raw text before
+    blanking; stored in `context["frontmatter"]`; aliases normalised via
+    `const.FRONTMATTER_ALIASES`. Frontmatter `topic_type` overrides sections[0].
+    Tests in `tests/test_f1_f2_f5.py`.
 
   [FATAL F3] SP12 emits N×M spam (jobs × files) when coverage is missing.
     jtbd-tool marks job coverage=="missing" corpus-wide → SP12 re-runs Jaccard per-file
@@ -140,21 +139,19 @@ TODO
     50-word stub with 3 findings = 60/1kw; 5000-word doc with 3 findings = 0.6/1kw.
     Fix: suppress badge / mark "insufficient sample" below 150 words (suggested threshold).
 
-  [MAJOR F5] Dimension→rule prefix mapping is unspecified.
-    5 curated dimensions (Clarity, Structure, Completeness, Style, Readability) not in
-    const.py. Attention.SyntacticDepth, Navigation.FindabilityMap, Resilience.*,
-    Curriculum.* have no stated dimension assignment. Must be decided and committed to
-    const.py as DIMENSION_MAP before scoring is implemented.
+  ✅ [MAJOR F5] FIXED (2026-06-07). `const.DIMENSION_MAP` added: 5 dimensions (Clarity,
+    Structure, Completeness, Style, Readability) → rule-check prefix lists. All previously
+    unassigned prefixes now mapped. `const.DIMENSION_DEFAULT = "Style"` fallback.
+    Tests in `tests/test_f1_f2_f5.py`.
 
   [MAJOR F6] SP12 tokenizer parity has no contract test.
     Plan says "reimplement _tokenize identically." Any drift in jtbd-tool stopwords
     silently diverges Jaccard scores. Fix: shared contract fixture — fixed text + job
     statement → expected Jaccard score — run against both tools in CI.
 
-  [MAJOR F7] jtbd-reporter integration scope undefined.
-    ~/Documents/github/jtbd-reporter is the LLM-powered companion (prose gap summaries,
-    coverage assessments). No decision on whether rhetor-server integrates it, ignores it,
-    or treats it as a separate surface. Resolve before server API design is final.
+  [MAJOR F7] jtbd-reporter integration scope — RESOLVED.
+    jtbd-reporter was early ideation/prototype. jtbd-tool is the planned implementation
+    and sole manifest source. No integration work needed on jtbd-reporter; archive it.
 
   [MINOR F8] Polling staleness unquantified. For active TechDocs monorepos, daily poll
     = up to 23-hour stale scores in Backstage plugin. State limitation explicitly in
@@ -162,7 +159,8 @@ TODO
 
   [MINOR F9] Owner field normalization vs Backstage entity references.
     frontmatter `owner: platform-team` won't match Backstage `group:platform-team`.
-    Normalization contract (prefix inference, fallback) must be defined alongside F2 fix.
+    F2 is now fixed — normalization contract (prefix inference, fallback) still TBD
+    but unblocked. Implement when Backstage plugin design begins.
 
   [MINOR F10] Server sub-package import constraint unstated.
     Rule modules must never import server-layer packages (FastAPI, SQLAlchemy) at module
@@ -1335,3 +1333,58 @@ The only manifest fields rhetor-linter reads:
 - `jobs[].coverage`  (`"missing"` | `"partial"` | `"covered"` | `"unknown"`)
 
 Schema version is in `manifest.version`. If the file is missing or invalid JSON, the rule returns `[]` silently — never raises.
+
+---
+
+## Infrastructure Gates
+
+Gates are triggered by conditions, not dates. No new git repos are created until Gate 2 fires.
+
+### Gate 1 — Scaffold (trigger: Phase 0 complete)
+
+Triggered when a component's Phase 0 is complete enough to start writing code in its target location. For each component the plan defines: what directories to create, what CLAUDE.md to write, what goes in pyproject.toml / package.json skeleton.
+
+This is just `mkdir` + stub files inside the existing repo — no new git repos yet.
+
+**Deliverables (✅ complete 2026-06-07):**
+- `rhetoric_lint/server/` — stub `__init__.py` + `CLAUDE.md` (import constraint documented)
+- `rhetoric_lint/score.py` — `ScoreResult` dataclass + `score_file()` boundary function (server calls this only)
+- `rhetoric_lint/metadata.py` — `normalise_topic_type()`, `normalise_owner()`, `normalise_frontmatter()` skeletons
+- `const.SCORE_MIN_WORDS = 150` — F4 scoring floor
+
+**Remaining Phase 0 items (open):**
+- F3: SP12 emission rework (corpus-level via CrossFileContext) — blocked on jtbd-tool Tier 3
+- F6: SP12 tokenizer contract test — blocked on jtbd-tool Tier 3
+- F8: Document polling staleness as known limitation (CONTRIBUTING.md note)
+- F9: `normalise_owner()` wired into engine F2 path (metadata.py exists; engine call not yet added)
+- F10: Server import constraint noted in CONTRIBUTING.md
+
+### Gate 2 — Repo creation (trigger: graduation condition)
+
+Graduation condition — any one of:
+- Server needs a different deploy cadence or version than the linter
+- A second analysis backend is added
+- A dedicated contributor works server-only
+
+Until the condition fires, `rhetoric_lint/server/` stays inside the linter repo. When it fires, the plan specifies a `git subtree split` or extract sequence.
+
+**Other Gate 2 repo creations:**
+- `jtbd-tool` repo: create when `jtbd-tool scan` returns valid manifest JSON (near-term trigger)
+- `backstage-shela-plugin` repo: create at Phase 4 start — TypeScript, separate cadence from day one
+
+### Gate 3 — Org creation (trigger: ≥2 repos ready for public release)
+
+Triggered by: two or more repos ready for public release under a shared brand. This is the last step, not the first.
+
+**Chosen org name: Chancery Labs (`chancery-labs`)**
+
+Component names under the org:
+
+| Component | Name | Role |
+|---|---|---|
+| Org | `chancery-labs` | Document authentication and transmission — medieval chancery metaphor |
+| Linter | `shela` | she'ela — the question/inquiry put to the text |
+| Server | `syla` | Transmits the findings |
+| Auditor | `laxa` | From halaxa — the normative path |
+
+Action at Gate 3: create GitHub org, transfer repos, update CI config and install paths in docs.

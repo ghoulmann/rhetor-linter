@@ -24,6 +24,10 @@ rhetoric-lint --style-dir style-sets/ --style Rhetoric docs/api.md   # include V
 
 Tests require the package to be importable. Run via `pipenv run python -m pytest` or activate the venv first; bare `python -m pytest` will fail if the env is not active.
 
+## CHANGELOG
+
+**Update `CHANGELOG.md` whenever work is committed.** Add entries under `## [Unreleased]` in the appropriate section (`Added`, `Changed`, `Fixed`, `Removed`). One bullet per logical change — rule additions, runner features, bug fixes, doc promotions. Do not add entries for test-only changes or internal refactors with no user-visible effect. When a version is released, the `[Unreleased]` section becomes the release entry with its date.
+
 spaCy model must be present: `python -m spacy download en_core_web_sm`. If absent, the engine falls back to a blank model (no POS tagging, reduced accuracy).
 
 ## Architecture
@@ -52,8 +56,24 @@ The linter is a single-process Python package (`rhetoric_lint/`). The main pipel
 | `headings` | flat list of all heading nodes |
 | `genre` | document genre string |
 | `doc_template` | technical sub-genre string or `"general"` |
+| `frontmatter` | parsed YAML frontmatter dict (empty if absent or PyYAML unavailable) |
+| `section_annotations` | dict keyed by 1-based heading line → annotation dict (from `<!--\n---\nyaml\n---\n-->` blocks) |
 
-Each section has: `level`, `heading`, `start`, `end`, `topic_type`, and `paragraphs`. Each paragraph has: `text`, `pos`, `line`, `doc` (spaCy Doc), `sentences` (list of `{span, start, end, line}`), and `nodes` (list of AST node metadata with `type`, `text`, `language`, `list_type`).
+Each section has: `level`, `heading`, `start`, `end`, `topic_type`, `paragraphs`, and optionally `annotation` (dict from a preceding annotation block). Each paragraph has: `text`, `pos`, `line`, `doc` (spaCy Doc), `sentences` (list of `{span, start, end, line}`), and `nodes` (list of AST node metadata with `type`, `text`, `language`, `list_type`).
+
+### F5 — DIMENSION_MAP
+
+`const.DIMENSION_MAP` maps the five scoring dimensions to their rule-check prefixes:
+
+| Dimension | Prefixes |
+|-----------|----------|
+| `Clarity` | `Rhetoric.*`, `Attention.*`, `Cohesion.*`, `Coherence.*` |
+| `Structure` | `Heading.*`, `Symmetry.*`, `Structure.*`, `Navigation.*` |
+| `Completeness` | `Completeness.*`, `Resilience.*`, `Curriculum.*` |
+| `Style` | `Unity.*`, `Lexical.*`, `Terminology.*`, Vale YAML rules |
+| `Readability` | `Rhetoric.ReadabilityGrade`, `Clarity.FleschReadingEase` |
+
+Rules not matched by any prefix fall under `const.DIMENSION_DEFAULT` (`"Style"`).
 
 ### Hard constraints (from CONTRIBUTING.md)
 
@@ -88,11 +108,15 @@ Rules with **no dedicated test file yet** (good contribution targets): `Heading.
 ## Adding a Vale-style YAML rule
 
 1. Create a YAML file in `style-sets/<StyleName>/` following Vale's rule format.
-2. Supported `extends:` values: `existence`, `substitution`, `occurrence`, `metric`, `capitalization`, `repetition`, `consistency`, `conditional`, `readability`, `sequence`.
+2. Supported `extends:` values: `existence`, `substitution`, `occurrence`, `metric`, `capitalization`, `repetition`, `consistency`, `conditional`, `readability`, `sequence`, `spelling`.
 3. Load at runtime: `rhetoric-lint --style-dir style-sets/ --style <StyleName> docs/`.
 4. Check name is `"{StyleName}.{yaml_stem}"`.
 5. Genre-gate: add `genre: howto, tutorial` to the rule YAML, or `meta.yml` with `genre:` for the whole style.
-6. Swap keys in `substitution` rules are treated as **raw regex patterns** (not escaped) — use `fire(?:m[ae]n|wom[ae]n)` syntax as in Vale. Word boundaries are added automatically unless `nonword: true`.
+6. Swap keys in `substitution` rules are treated as **raw regex patterns** (not escaped) — use `fire(?:m[ae]n|wom[ae]n)` syntax as in Vale. Word boundaries are added automatically unless `nonword: true`. Substitution findings carry a `fix` payload — `--fix` applies them in-place.
+7. **Spelling rules** (`extends: spelling`) require `spylls` (`pip install 'rhetoric-lint[spell]'`). Bundled dictionaries: `en_US`, `sv_SE`, `ru`. The shipped `Spelling` style uses `en_US` with `vocab/aws.txt` and `vocab/tech.txt`.
+   - **To add terms**: append one word per line to `style-sets/Spelling/vocab/tech.txt` (general tech) or `vocab/aws.txt` (AWS). Words are matched case-insensitively.
+   - **To use a custom wordlist**: add a `vocab/myterms.txt` file in your style dir and reference it under `ignore:` in the spelling YAML.
+   - **`action: {name: suggest}`**: populates `issue["suggestions"]` (up to 3) but does not auto-fix — spelling corrections require human review.
 
 ### `extends: readability` and the Lexi metric
 
@@ -112,11 +136,13 @@ scope: paragraph
 
 ### style-sets/ layout
 
-`style-sets/` is the canonical directory for all Vale-compatible style sets. Only project-owned sets are tracked in git; user/third-party sets installed alongside them are gitignored via `style-sets/*` + `!style-sets/<Name>` negation rules in `.gitignore`. Currently tracked: `Rhetoric/`, `Clarity/`.
+`style-sets/` is the canonical directory for all Vale-compatible style sets. Only project-owned sets are tracked in git; user/third-party sets installed alongside them are gitignored via `style-sets/*` + `!style-sets/<Name>` negation rules in `.gitignore`. Currently tracked: `Rhetoric/`, `Clarity/`, `Spelling/`.
 
 ## Active development
 
 Single source of truth: `.claude/plans/plan-support-for-markdownlint-joyful-teacup.md` (all addendums integrated).
+
+Enterprise platform design (scoring, server, Backstage, JTBD integration): `.claude/plans/plan-enterprise-platform.md`.
 
 Status as of 2026-06-07:
 
@@ -131,6 +157,11 @@ Status as of 2026-06-07:
 | SP7 | ✅ done | Rhetoric YAML additions: Terminology, Inclusivity, InclusivityFlag |
 | SP8 | ✅ done | 6 NLP rules: SyntacticDepth, Nominalization, MetricDensity, ToneImbalance, PreferredForm, TabVariantBalance |
 | SP9 | ✅ done | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, UnsupportedClaim (Python/spaCy) + ReadabilityGrade.yml (Vale YAML, `extends: readability`, `metric: Lexi`) |
+| SP_CONTRAST | ✅ done | Rhetoric.UnresolvedContrast (implemented in rhetoric.py, tested) |
+| F1 | ✅ done | Section annotation pre-pass: `<!--\n---\nyaml\n---\n-->` blocks before headings → `section_annotations` + `sec["annotation"]`; `topic_type` overrides classifier |
+| F2 | ✅ done | Frontmatter parsing into `context["frontmatter"]` before blanking; alias normalisation via `const.FRONTMATTER_ALIASES` |
+| F5 | ✅ done | `const.DIMENSION_MAP` — 5 scoring dimensions mapped to rule-check prefixes |
+| SP_SPELL | ✅ done | `extends: spelling` via spylls; optional dep `[spell]`; `style-sets/Spelling/` with en_US + AWS/tech vocab |
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.
