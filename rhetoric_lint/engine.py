@@ -1021,7 +1021,7 @@ class RhetoricEngine:
                 sections[0]["topic_type"] = frontmatter["topic_type"]
 
             # Detect document genre (or use caller-supplied override)
-            genre = genre_override or classify_genre(sections, doc, text, const)
+            genre = genre_override or classify_genre(sections, doc, text, const, path=path)
             self.last_genres[path] = genre
 
             # Classify doc template (platform/product sub-types within technical)
