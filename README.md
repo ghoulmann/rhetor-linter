@@ -216,6 +216,9 @@ generally good practice for both human readers and automated retrieval systems.
 | `Rhetoric.ToneImbalance` | suggestion | Document tone is unbalanced: excessive authoritative modals (in how-to/tutorial) or negative framing |
 | `Terminology.PreferredForm` | suggestion | Term does not match required form in `TERMINOLOGY_FILE` |
 | `Symmetry.TabVariantBalance` | suggestion | Content-tab variants have unequal step counts (exceeds `TAB_VARIANT_STEP_TOLERANCE`) |
+| `Rhetoric.PassiveVoiceActorGap` | suggestion | Passive construction without an explicit by-agent; escalates to warning in how-to/tutorial sections |
+| `Attention.SentenceRhythm` | suggestion | Section has monotonous or wildly uneven sentence-length pacing (high CV or extreme length spike ratio) |
+| `Completeness.UnsupportedClaim` | suggestion | Assertion signal (`therefore`, `thus`, `this means`, etc.) not followed by evidence within 2 sentences (concept/explanation/technical genres) |
 
 ### Architecture Decision Records (ADR)
 

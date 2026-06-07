@@ -348,6 +348,10 @@ RULE_DESCRIPTIONS = {
     "Completeness.StructureLead":       "Section opens directly with a list or code block without a lead sentence explaining its purpose.",
     "Engine.OversizedDocument":         "Document exceeds NLP_MAX_CHARS; full-document NLP analysis was truncated. Section-level checks run on the complete file.",
     "Rhetoric.UnresolvedContrast":      "A contrast signal (however, but, although, etc.) appears without a following resolution — the reader cannot determine the takeaway.",
+    # SP9
+    "Rhetoric.PassiveVoiceActorGap":    "Passive construction without an explicit by-agent. In instructional prose, actorless passives obscure who performs the step.",
+    "Attention.SentenceRhythm":         "Section has monotonous or wildly uneven sentence-length pacing (high CV or extreme min/max ratio).",
+    "Completeness.UnsupportedClaim":    "Assertion signal (therefore, this means, thus, etc.) not followed by evidence, an example, or a code sample within 2 sentences.",
 }
 
 # ---------------------------------------------------------------------------
@@ -449,6 +453,10 @@ RULE_SEVERITY_LEVELS = {
     "Rhetoric.ToneImbalance": "suggestion",
     "Terminology.PreferredForm": "warning",
     "Symmetry.TabVariantBalance": "warning",
+    # SP9 — ProsePartner gaps
+    "Rhetoric.PassiveVoiceActorGap": "suggestion",
+    "Attention.SentenceRhythm": "suggestion",
+    "Completeness.UnsupportedClaim": "suggestion",
 }
 
 # ---------------------------------------------------------------------------
@@ -473,6 +481,19 @@ CONTRAST_MIN_SENTENCES = 3
 
 # Body-NLP tiebreaker: imperative-sentence ratio threshold for howto detection
 SECTION_IMPERATIVE_RATIO_HOWTO = 0.40
+
+# ---------------------------------------------------------------------------
+# SP9 — ProsePartner gaps
+# ---------------------------------------------------------------------------
+
+# Attention.SentenceRhythm
+SENTENCE_RHYTHM_CV_MAX = 0.8
+SENTENCE_RHYTHM_SPIKE_RATIO = 4.0
+SENTENCE_RHYTHM_MIN_SENTENCES = 4
+
+# Completeness.UnsupportedClaim
+UNSUPPORTED_CLAIM_LOOKAHEAD_SENTENCES = 2
+UNSUPPORTED_CLAIM_MAX_PER_PARA = 2
 
 # ---------------------------------------------------------------------------
 # Runner / style infrastructure (SP1)

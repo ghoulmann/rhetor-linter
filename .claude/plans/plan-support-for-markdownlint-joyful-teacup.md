@@ -872,72 +872,25 @@ LongSentence and WallOfText exist but don't track pacing. CV of sentence lengths
 
 **const.py:** `SENTENCE_RHYTHM_CV_MAX = 0.8`, `SENTENCE_RHYTHM_SPIKE_RATIO = 4.0`, `SENTENCE_RHYTHM_MIN_SENTENCES = 4`
 
-### 3. `rules/readability.py` → `Attention.ReadabilityGrade`
+### 3. `style-sets/Rhetoric/ReadabilityGrade.yml` → `Rhetoric.ReadabilityGrade`
 
-Section-level readability with genre awareness, using the **lexi composite formula** (Rebilly) for the 0–100 score and Vale-compatible individual grade metrics for thresholds.
+**Supersedes the Python rule approach.** Implemented as a Vale YAML rule using the `extends: readability` type (SP4) with `metric: Lexi`. The Lexi composite score is already in `_readability.py`; no new Python module needed. Threshold is user-configurable via YAML override in `.rhetoric-lint.yaml`.
 
-**Uses `rhetoric_lint/runners/_readability.py::preprocess_for_readability()`** — the same preprocessing shared with the Vale `readability` rule type. This guarantees consistent scores across both rule systems for the same text.
-
-#### Composite formula (from lexi)
-
-```python
-METRIC_RANGES = {
-    "flesch_reading_ease":          {"min": 0,    "max": 100},   # higher = easier
-    "gunning_fog":                  {"min": 19,   "max": 6},     # lower = easier (inverted)
-    "automated_readability_index":  {"min": 22,   "max": 6},     # lower = easier (inverted)
-    "dale_chall_readability_score": {"min": 11,   "max": 4.9},   # lower = easier (inverted)
-    "coleman_liau_index":           {"min": 19,   "max": 6},     # lower = easier (inverted)
-}
-
-WEIGHTS = {
-    "flesch_reading_ease":          0.1653977378,
-    "gunning_fog":                  0.2228367277,
-    "automated_readability_index":  0.2325290236,
-    "dale_chall_readability_score": 0.1960641698,
-    "coleman_liau_index":           0.1831723411,
-}
-
-def _composite(text: str) -> float:
-    raw = {
-        "flesch_reading_ease":          textstat.flesch_reading_ease(text),
-        "gunning_fog":                  textstat.gunning_fog(text),
-        "automated_readability_index":  textstat.automated_readability_index(text),
-        "dale_chall_readability_score": textstat.dale_chall_readability_score(text),
-        "coleman_liau_index":           textstat.coleman_liau_index(text) or 0,
-    }
-    # Cap each score to its range
-    capped = {k: _cap(v, METRIC_RANGES[k]["min"], METRIC_RANGES[k]["max"]) for k, v in raw.items()}
-    # Normalize 0→1 (ranges may be inverted — capBetween handles sign)
-    normed = {k: (capped[k] - mn) / (mx - mn)
-              for k, (mn, mx) in {k: (min(r["min"],r["max"]), max(r["min"],r["max"]))
-                                   for k,r in METRIC_RANGES.items()}.items()}
-    return 100 * sum(normed[k] * WEIGHTS[k] for k in WEIGHTS)
+```yaml
+extends: readability
+message: "Readability score is low (%s) — consider simplifying sentences or vocabulary."
+level: warning
+scope: paragraph
+metric: Lexi
+max: 65
 ```
 
-Composite 0–100: higher = more readable (same direction as Flesch Reading Ease).
+Score 0–100 (100 = most readable). Paragraphs scoring below `max` fire. Genre gating via the `genre:` field if needed.
 
-#### Genre-aware thresholds (FK Grade for threshold; composite reported in message)
-
-| Genre | FK Grade threshold | Severity |
-|---|---|---|
-| `howto`, `tutorial` | > `READABILITY_TUTORIAL_FK_MAX` (12) | warning |
-| `technical`, `general` | > `READABILITY_TECHNICAL_FK_MAX` (16) | suggestion |
-| `concept`, `explanation` | > `READABILITY_TECHNICAL_FK_MAX` (16) | suggestion |
-| `adr`, `postmortem` | exempt | — |
-| `reference` | exempt | — |
-
-One finding per section; message includes: FK grade, composite score (0–100), and top-contributing metric.
-
-**Edge case tests:**
-- Tutorial section FK=8, composite=72 → no finding
-- Tutorial section FK=14, composite=45 → finding with composite in message
-- ADR section FK=20 → no finding (genre exempt)
-- Section with < `READABILITY_MIN_SENTENCES` (3) → no finding
-- Empty text → no finding
-- `textstat` import fails → rule disabled with one-time warning
-- **Consistency:** same section text passed to Vale `readability` rule and to this rule → FK grades match within ±0.5 (documents expected delta from `twine` syllable counter)
-
-**const.py:** `READABILITY_TUTORIAL_FK_MAX = 12`, `READABILITY_TECHNICAL_FK_MAX = 16`, `READABILITY_MIN_SENTENCES = 3`
+**Tests** (in `test_rhetoric_yaml.py`):
+- Low-readability paragraph → `Rhetoric.ReadabilityGrade` fires
+- High-readability paragraph → no finding
+- `textstat` absent → no crash (runner skips metric silently)
 
 ### 4. `rules/unsupported_claim.py` → `Completeness.UnsupportedClaim`
 

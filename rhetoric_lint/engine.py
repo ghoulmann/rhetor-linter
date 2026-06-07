@@ -482,6 +482,9 @@ class RhetoricEngine:
             "metric_density",
             "tone",
             "preferred_form",
+            "passive_voice",
+            "sentence_rhythm",
+            "unsupported_claim",
         ):
             mod = import_module(f"rhetoric_lint.rules.{name}")
             if hasattr(mod, "check"):

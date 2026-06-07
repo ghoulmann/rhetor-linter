@@ -164,6 +164,9 @@ customRules:
 | `Rhetoric.ToneImbalance` | suggestion | Excessive authoritative modals or negative framing |
 | `Terminology.PreferredForm` | suggestion | Term does not match required form in `TERMINOLOGY_FILE` |
 | `Symmetry.TabVariantBalance` | suggestion | Content-tab variants have unequal step counts |
+| `Rhetoric.PassiveVoiceActorGap` | suggestion | Passive construction without an explicit by-agent |
+| `Attention.SentenceRhythm` | suggestion | Monotonous or wildly uneven sentence-length pacing |
+| `Completeness.UnsupportedClaim` | suggestion | Assertion signal not followed by evidence within 2 sentences |
 
 ## Configuration
 

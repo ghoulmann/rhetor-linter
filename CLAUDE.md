@@ -130,7 +130,7 @@ Status as of 2026-06-07:
 | SP6 | ✅ done | TrivializingLanguage migrated to Vale YAML (`style-sets/Rhetoric/`) |
 | SP7 | ✅ done | Rhetoric YAML additions: Terminology, Inclusivity, InclusivityFlag |
 | SP8 | ✅ done | 6 NLP rules: SyntacticDepth, Nominalization, MetricDensity, ToneImbalance, PreferredForm, TabVariantBalance |
-| SP9 | next | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, UnsupportedClaim (Python/spaCy) + ReadabilityGrade.yml (Vale YAML, `extends: readability`, `metric: Lexi`) |
+| SP9 | ✅ done | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, UnsupportedClaim (Python/spaCy) + ReadabilityGrade.yml (Vale YAML, `extends: readability`, `metric: Lexi`) |
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.
