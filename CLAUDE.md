@@ -158,9 +158,12 @@ Status as of 2026-06-07:
 | SP8 | ✅ done | 6 NLP rules: SyntacticDepth, Nominalization, MetricDensity, ToneImbalance, PreferredForm, TabVariantBalance |
 | SP9 | ✅ done | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, UnsupportedClaim (Python/spaCy) + ReadabilityGrade.yml (Vale YAML, `extends: readability`, `metric: Lexi`) |
 | SP_CONTRAST | ✅ done | Rhetoric.UnresolvedContrast (implemented in rhetoric.py, tested) |
+| SP_GENRE | ✅ done | 10-genre Diataxis classifier: filename detection, changelog/readme/howto signals, dominant topic_type inference; corpus relabeled; accuracy gate conditional on GENRE_GATE_ENABLED |
 | F1 | ✅ done | Section annotation pre-pass: `<!--\n---\nyaml\n---\n-->` blocks before headings → `section_annotations` + `sec["annotation"]`; `topic_type` overrides classifier |
 | F2 | ✅ done | Frontmatter parsing into `context["frontmatter"]` before blanking; alias normalisation via `const.FRONTMATTER_ALIASES` |
+| F4 | ✅ done | `score.py` boundary: `score_file(path, findings, context) -> ScoreResult`; `SCORE_MIN_WORDS = 150` in const.py; `metadata.py` frontmatter normalisation |
 | F5 | ✅ done | `const.DIMENSION_MAP` — 5 scoring dimensions mapped to rule-check prefixes |
+| F9 | ✅ done | `server/` stub with import constraint (only `score_file`/`ScoreResult`); graduation condition documented |
 | SP_SPELL | ✅ done | `extends: spelling` via spylls; optional dep `[spell]`; `style-sets/Spelling/` with en_US + AWS/tech vocab |
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 

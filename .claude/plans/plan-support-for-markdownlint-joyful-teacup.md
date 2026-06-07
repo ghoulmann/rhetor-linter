@@ -54,20 +54,26 @@ Independent (any time):
 
 | # | Subplan | Depends on |
 |---|---|---|
-| SP1 | Runner infrastructure + fix framework + CrossFileContext stub | — |
-| SP2 | Vale core types (existence + substitution) | SP1 |
-| SP3 | markdownlint native MD rules | SP1 |
-| SP4 | Vale extended types (occurrence … sequence/NLP) | SP2 |
-| SP5 | markdownlint-cli2 Python custom rule extension | SP3 |
-| SP6 | Migrate TrivializingLanguage to Vale YAML | SP2 |
-| SP7 | Rhetoric YAML additions (Terminology, Inclusivity) | SP2 |
-| SP8 | NLP rule expansion (5 spaCy rules + TabVariantBalance) | SP1 |
-| SP9 | ProsePartner gaps (3 Python rules + ReadabilityGrade.yml) | SP8, SP4 |
-| SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 |
-| SP_CI | Pre-commit + GitHub Actions integration | SP1 |
-| SP_CONTRAST | Rhetoric.UnresolvedContrast | — |
-| SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) |
-| SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) |
+| SP1 | Runner infrastructure + fix framework + CrossFileContext stub | — | ✅ done |
+| SP2 | Vale core types (existence + substitution) | SP1 | ✅ done |
+| SP3 | markdownlint native MD rules | SP1 | ✅ done |
+| SP4 | Vale extended types (occurrence … sequence/NLP) | SP2 | ✅ done |
+| SP5 | markdownlint-cli2 Python custom rule extension | SP3 | ✅ done |
+| SP6 | Migrate TrivializingLanguage to Vale YAML | SP2 | ✅ done |
+| SP7 | Rhetoric YAML additions (Terminology, Inclusivity) | SP2 | ✅ done |
+| SP8 | NLP rule expansion (6 spaCy rules + TabVariantBalance) | SP1 | ✅ done |
+| SP9 | ProsePartner gaps (3 Python rules + ReadabilityGrade.yml) | SP8, SP4 | ✅ done |
+| SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 | ✅ done |
+| SP_CONTRAST | Rhetoric.UnresolvedContrast | — | ✅ done |
+| SP_GENRE | Genre refactor: 10-genre Diataxis set, filename detection, corpus relabeling | — | ✅ done |
+| F1 | Section annotation pre-pass | engine.py | ✅ done |
+| F2 | Frontmatter parsing + FRONTMATTER_ALIASES | engine.py | ✅ done |
+| F4 | SCORE_MIN_WORDS = 150 + score.py skeleton | const.py, score.py | ✅ done |
+| F5 | DIMENSION_MAP (5 scoring dimensions) | const.py | ✅ done |
+| F9 | metadata.py: normalise_topic_type, normalise_owner, normalise_frontmatter | metadata.py | ✅ done |
+| SP_CI | Pre-commit + GitHub Actions integration | SP1 | open |
+| SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) | backlog |
+| SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) | backlog |
 
 SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1).
 
@@ -94,10 +100,13 @@ Tier 2 — Extensions (parallel after Tier 1)
   SP_SPELL: Vale spelling rule type (spylls optional dep)
 
 Tier 3 — Depends on Tier 2
-  SP9: ProsePartner gaps — PassiveVoiceActorGap, SentenceRhythm,
-       UnsupportedClaim (Python/spaCy, needs SP4 + SP8) +
-       ReadabilityGrade.yml (Vale YAML, extends: readability, metric: Lexi)
-  SP7: Rhetoric YAML additions — Terminology.yml, Inclusivity.yml  ✅ done
+  SP9:      ProsePartner gaps — PassiveVoiceActorGap, SentenceRhythm,
+            UnsupportedClaim (Python/spaCy, needs SP4 + SP8) +
+            ReadabilityGrade.yml (Vale YAML, extends: readability, metric: Lexi)
+  SP7:      Rhetoric YAML additions — Terminology.yml, Inclusivity.yml  ✅ done
+  SP_GENRE: 10-genre Diataxis classifier — filename detection, changelog/readme/howto
+            signals, dominant topic_type inference; corpus relabeled; accuracy gate
+            conditional on GENRE_GATE_ENABLED  ✅ done
 
 TODO
   TabVariantBalance: rule is structural (AST OL-item counting), not NLP — no spaCy dep.
@@ -298,7 +307,7 @@ Style-level genre gating via optional `meta.yml` in a style directory:
 genre: howto, tutorial          # all rules in this dir only run on these genres
 ```
 
-Individual rule `genre:` takes precedence over directory-level meta. Genre values match the engine's output: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `faq`, `adr`, `postmortem`, `technical`, `general`. Absent `genre:` field = applies to all genres.
+Individual rule `genre:` takes precedence over directory-level meta. Genre values match the engine's output: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `adr`, `postmortem`, `changelog`, `readme`, `general`. Absent `genre:` field = applies to all genres.
 
 ### Fix support
 
@@ -334,7 +343,7 @@ Vale uses Go printf `%s` / `%[1]s`. Map to Python `%s` by substituting `%[N]s` �
 - Existence `scope: paragraph`: does NOT fire on identical token inside a fenced code block
 - Existence `scope: paragraph`: does NOT fire on token inside an inline code span (`` `just` ``)
 - Existence `scope: prose`: does NOT fire on token that is the href of a link
-- `genre: howto`: fires on howto document, suppressed on technical document
+- `genre: howto`: fires on howto document, suppressed on general document
 - `genre: tutorial, howto`: fires on both, suppressed on adr
 - Rule without `genre:` field: fires on all genres
 - Style with `meta.yml genre: howto`: entire style skipped on non-howto document
@@ -784,7 +793,7 @@ Content tabs (`=== "Tab"` blocks) rewritten to blockquotes by the engine preproc
 - Count ordered list items (`nodes` with `list_type == "ol"`) per tab variant.
 - If `max(step_count) - min(step_count) > TAB_VARIANT_STEP_TOLERANCE` across ≥ 2 variants → `warning`.
 - Skip sections where all tab variants contain only code blocks (reference-style tabs).
-- `GENRES = frozenset({"technical", "general"})`
+- `GENRES = frozenset({"howto", "tutorial", "concept", "explanation", "reference", "general"})`
 
 **False positive controls:**
 
@@ -838,13 +847,13 @@ Not duplicate of write-good's `Passive.yml` (which flags all passive). This flag
 - Detect passive: `token.dep_ in ("nsubjpass", "auxpass")` OR `token.dep_ == "aux"` AND POS tag `VBN`/`VBD` following `be`-form.
 - Flag only when no `by`-agent (`prep` with `pobj` where prep lemma == "by") exists in the same clause.
 - Genre gate: higher severity in howto/tutorial genres (`"error"`); `"suggestion"` elsewhere.
-- Suppress: passive constructions where the actor is genuinely unknown/irrelevant (e.g., "it was observed that" in scientific/technical genres).
+- Suppress: passive constructions where the actor is genuinely unknown/irrelevant (e.g., "it was observed that" in concept/explanation genres).
 
 **Edge case tests:**
 - `"The file is created."` → finding (no actor)
 - `"The file is created by the installer."` → no finding (actor present)
 - `"Errors were logged."` in postmortem → finding
-- `"It was shown that..."` in technical genre → suggestion (not error)
+- `"It was shown that..."` in concept/explanation genre → suggestion (not error)
 - Active sentence `"The installer creates the file."` → no finding
 - Sentence with no verb → no finding
 
@@ -912,7 +921,7 @@ as a result, consequently, it follows that
 - Per paragraph in concept/explanation sections, scan sentences for assertion signals.
 - If found, look ahead 2 sentences in the same paragraph + the immediately following block.
 - If no evidence signal found → finding at the assertion sentence.
-- Genre gate: only fires in `concept`, `explanation`, `technical` genres.
+- Genre gate: only fires in `concept`, `explanation` genres.
 
 **Edge case tests:**
 - `"Therefore, X. For example, Y."` → no finding (evidence present)
@@ -1116,7 +1125,7 @@ CONTRAST_RESOLUTION_SIGNALS = [
 2. Skip if `len(sentences) < CONTRAST_MIN_SENTENCES` (default 3).
 3. For each sentence with contrast signal at position < 30% of sentence length: check rest of sentence + next sentence for resolution signal; no resolution → emit finding at contrast sentence's line.
 4. Cap at `CONTRAST_UNRESOLVED_MAX_PER_PARA` (default 2) per paragraph.
-5. Genre gate: fires only in `concept`, `explanation`, `technical`, `general`. Skip `howto`, `tutorial`, `adr`, `reference`, `postmortem`.
+5. Genre gate: fires only in `concept`, `explanation`, `general`. Skip `howto`, `tutorial`, `adr`, `reference`, `postmortem`.
 
 ### `const.py` additions
 ```python
