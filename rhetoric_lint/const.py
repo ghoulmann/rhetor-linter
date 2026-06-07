@@ -138,18 +138,6 @@ TASK_INTRO_PATTERNS = [
     "do the following",
 ]
 
-# Trivializing language (Rhetoric.TrivializingLanguage)
-# NOTE: "just" has high false-positive risk (non-trivializing uses: "just as important",
-# "not just X", "just released"). Monitor precision and remove if noisy.
-TRIVIALIZING_WORDS = [
-    "simply",
-    "just",
-    "easily",
-    "obviously",
-    "of course",
-    "straightforward",
-]
-
 # Modal ambiguity (Rhetoric.ModalAmbiguity)
 PRESCRIPTIVE_MODALS = ["must", "shall", "required", "have to", "need to", "has to", "needs to"]
 ADVISORY_MODALS = ["should", "may", "might", "recommend", "consider", "optional"]

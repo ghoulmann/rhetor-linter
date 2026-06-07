@@ -1,14 +1,46 @@
-"""Tests for Rhetoric.TrivializingLanguage, Rhetoric.ModalAmbiguity, and
+"""Tests for Rhetoric.TrivializingLanguage (Vale YAML), Rhetoric.ModalAmbiguity, and
 Cohesion.ForwardReference."""
+import os
+from contextlib import contextmanager
 from pathlib import Path
 
+import rhetoric_lint.const as _const
 from rhetoric_lint.engine import RhetoricEngine
+
+# Absolute path to style-sets/ (sibling of tests/)
+_STYLE_SETS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "style-sets")
+)
+
+
+@contextmanager
+def _rhetoric_style():
+    """Temporarily configure the engine to load the Rhetoric style set."""
+    orig_dirs = _const.STYLE_DIRS
+    orig_styles = _const.ENABLED_STYLES
+    _const.STYLE_DIRS = [_STYLE_SETS_DIR]
+    _const.ENABLED_STYLES = ["Rhetoric"]
+    try:
+        yield
+    finally:
+        _const.STYLE_DIRS = orig_dirs
+        _const.ENABLED_STYLES = orig_styles
 
 
 def _run(text: str, tmp_path: Path):
     p = tmp_path / "test.md"
     p.write_text(text, encoding="utf-8")
     eng = RhetoricEngine()
+    return eng.lint_files([str(p)])
+
+
+def _run_with_rhetoric(text: str, tmp_path: Path):
+    """Run engine with Rhetoric style set loaded (for SP6 Vale-based TrivializingLanguage)."""
+    p = tmp_path / "test.md"
+    p.write_text(text, encoding="utf-8")
+    with _rhetoric_style():
+        eng = RhetoricEngine()
+        eng._init_runners()
     return eng.lint_files([str(p)])
 
 
@@ -19,44 +51,44 @@ def _run(text: str, tmp_path: Path):
 
 def test_trivializing_simply(tmp_path):
     md = "# Installing the Package\n\nSimply run `pip install foo` to get started.\n"
-    issues = _run(md, tmp_path)
+    issues = _run_with_rhetoric(md, tmp_path)
     checks = {i["check"] for i in issues}
-    assert "Rhetoric.TrivializingLanguage" in checks
+    assert any("TrivializingLanguage" in c for c in checks)
 
 
 def test_trivializing_obviously(tmp_path):
     md = "# Setup\n\nObviously you will need to configure the database first.\n"
-    issues = _run(md, tmp_path)
+    issues = _run_with_rhetoric(md, tmp_path)
     checks = {i["check"] for i in issues}
-    assert "Rhetoric.TrivializingLanguage" in checks
+    assert any("TrivializingLanguage" in c for c in checks)
 
 
 def test_trivializing_of_course(tmp_path):
     md = "# Prerequisites\n\nOf course, you should have Python 3.10 or later installed.\n"
-    issues = _run(md, tmp_path)
+    issues = _run_with_rhetoric(md, tmp_path)
     checks = {i["check"] for i in issues}
-    assert "Rhetoric.TrivializingLanguage" in checks
+    assert any("TrivializingLanguage" in c for c in checks)
 
 
 def test_trivializing_no_false_positive_temporal_just(tmp_path):
     md = "# Release Notes\n\nWe have just released version 2.0 with breaking changes.\n"
-    issues = _run(md, tmp_path)
+    issues = _run_with_rhetoric(md, tmp_path)
     checks = {i["check"] for i in issues}
-    assert "Rhetoric.TrivializingLanguage" not in checks
+    assert not any("TrivializingLanguage" in c for c in checks)
 
 
 def test_trivializing_no_false_positive_code_block(tmp_path):
     # "simply" inside a fenced code block should not trigger
     md = "# Setup\n\n```bash\n# simply install the package\npip install foo\n```\n"
-    issues = _run(md, tmp_path)
+    issues = _run_with_rhetoric(md, tmp_path)
     checks = {i["check"] for i in issues}
-    assert "Rhetoric.TrivializingLanguage" not in checks
+    assert not any("TrivializingLanguage" in c for c in checks)
 
 
 def test_trivializing_just_released(tmp_path):
     md = "# What Changed\n\nWe just released a new version.\n"
-    issues = _run(md, tmp_path)
-    trivializing = [i for i in issues if i["check"] == "Rhetoric.TrivializingLanguage"]
+    issues = _run_with_rhetoric(md, tmp_path)
+    trivializing = [i for i in issues if "TrivializingLanguage" in i["check"]]
     assert len(trivializing) == 0
 
 

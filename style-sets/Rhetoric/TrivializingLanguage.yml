@@ -1,0 +1,12 @@
+extends: existence
+message: "Trivializing language: '%s' implies this is easy. Consider removing."
+level: suggestion
+scope: paragraph
+ignorecase: true
+nonword: false
+tokens:
+  - simply
+  - easily
+  - obviously
+  - 'of course'
+  - straightforward

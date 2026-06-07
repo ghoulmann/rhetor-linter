@@ -218,5 +218,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-
-style-sets
+# Vale style sets — only the project's own Rhetoric set is tracked
+style-sets/*
+!style-sets/Rhetoric
+!style-sets/Rhetoric/**

@@ -15,8 +15,10 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     - Rhetoric.ComplexitySpike: propositional density in long paragraphs.
     - Rhetoric.ThroatClearing: first-10-words stopword ratio.
-    - Rhetoric.TrivializingLanguage: trivializing words in prose paragraphs.
     - Rhetoric.ModalAmbiguity: mixed prescriptive/advisory modals in ordered lists.
+
+    Note: Rhetoric.TrivializingLanguage was migrated to Vale YAML (SP6).
+    Load it via --style-dir style-sets/ --style Rhetoric.
     """
     path = context["path"]
     text = context["text"]
@@ -100,11 +102,6 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
         offset = pos + len(block)
 
     # -------------------------------------------------------------------------
-    # Rhetoric.TrivializingLanguage — section/node-aware pass
-    # -------------------------------------------------------------------------
-    _trivializing_check(issues, sections, path, text, const)
-
-    # -------------------------------------------------------------------------
     # Rhetoric.ModalAmbiguity — section/node-aware pass
     # -------------------------------------------------------------------------
     _modal_ambiguity_check(issues, sections, path, text, const)
@@ -122,77 +119,6 @@ _SKIP_NODE_TYPES = frozenset({
     "ListItem", "List", "Code", "CodeFence", "FencedCode",
     "BlockCode", "Image", "BlockQuote",
 })
-
-
-def _trivializing_check(
-    issues: List[Dict[str, Any]],
-    sections: List[Dict[str, Any]],
-    path: str,
-    text: str,
-    const: Any,
-) -> None:
-    """Rhetoric.TrivializingLanguage: flag trivializing words in prose paragraphs."""
-    words = getattr(const, "TRIVIALIZING_WORDS", [
-        "simply", "just", "easily", "obviously", "of course", "straightforward",
-    ]) if const else ["simply", "just", "easily", "obviously", "of course", "straightforward"]
-    severity = (
-        const.RULE_SEVERITY_LEVELS.get("Rhetoric.TrivializingLanguage", "suggestion")
-        if const else "suggestion"
-    )
-
-    patterns = []
-    for phrase in words:
-        if " " in phrase:
-            pat = re.compile(re.escape(phrase), re.IGNORECASE)
-        else:
-            pat = re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE)
-        patterns.append((phrase, pat))
-
-    for sec in sections:
-        for para in sec.get("paragraphs", []):
-            nodes = para.get("nodes", [])
-            if not nodes:
-                continue
-            node_type = nodes[0].get("type", "Paragraph")
-            if node_type in _SKIP_NODE_TYPES:
-                continue
-
-            para_text = para.get("text", "")
-            if not para_text:
-                continue
-            para_pos = para.get("pos", 0)
-
-            for phrase, pat in patterns:
-                m = pat.search(para_text)
-                if not m:
-                    continue
-
-                # Suppress "just" in temporal/recency contexts
-                if phrase == "just":
-                    window = para_text[max(0, m.start() - 30):m.end() + 30].lower()
-                    if re.search(
-                        r"\bjust\s+(released|updated|published|merged|deployed|added|"
-                        r"fixed|changed|created|removed|now|recently)\b",
-                        window,
-                    ):
-                        continue
-                    if re.search(r"\b(have|has|had|was|were)\s+just\b", window):
-                        continue
-
-                abs_pos = para_pos + m.start()
-                line = _line_from_pos(text, abs_pos)
-                issues.append({
-                    "path": path,
-                    "line": line,
-                    "column": 1,
-                    "message": (
-                        f"Trivializing language: '{phrase}' implies readers should find "
-                        f"this easy, which alienates readers who don't. Consider removing."
-                    ),
-                    "severity": severity,
-                    "check": "Rhetoric.TrivializingLanguage",
-                })
-                break  # one issue per paragraph (first matching phrase wins)
 
 
 def _modal_ambiguity_check(

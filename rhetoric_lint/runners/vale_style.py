@@ -429,7 +429,7 @@ def _apply_existence(rule: _Rule, context: Dict[str, Any]) -> List[Dict[str, Any
             for pattern, token in rule._patterns:
                 for m in pattern.finditer(line_text):
                     matched = m.group(0)
-                    if rule._exception_re and rule._exception_re.search(matched):
+                    if rule._exception_re and rule._exception_re.search(line_text):
                         continue
                     msg = rule.message.replace("%s", matched) if "%s" in rule.message else rule.message
                     issues.append(_make_issue(rule, path, line_no, m.start() + 1, msg))
@@ -445,7 +445,7 @@ def _apply_substitution(rule: _Rule, context: Dict[str, Any]) -> List[Dict[str, 
             for pattern, replacement in rule._patterns:
                 for m in pattern.finditer(line_text):
                     matched = m.group(0)
-                    if rule._exception_re and rule._exception_re.search(matched):
+                    if rule._exception_re and rule._exception_re.search(line_text):
                         continue
                     rep = replacement
                     if rule.capitalize and matched and matched[0].isupper():

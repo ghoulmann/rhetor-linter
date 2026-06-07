@@ -52,6 +52,11 @@ rhetoric-lint rules --format json
 | `--ignore` | — | Comma-separated glob patterns to exclude files |
 | `--config`, `-c` | — | YAML or JSON config file; keys matching `const.py` override defaults |
 | `--genre` | — | Override genre detection: `technical`, `scientific`, `academic`, `curriculum`, `legal`, `adr`, `postmortem`, `general` |
+| `--style-dir` | — | Parent directory of Vale-compatible style sets (repeatable) |
+| `--style` | — | Comma-separated style names to enable (empty = all in `--style-dir`) |
+| `--no-vale` | false | Disable Vale-compatible style runners |
+| `--no-markdownlint` | false | Disable markdownlint runner |
+| `--fix` | false | Apply all deterministic fixes in-place |
 
 Both `--rules` and `--ignore-rules` support prefix matching: `--rules Cohesion` matches all `Cohesion.*` checks.
 
@@ -67,6 +72,62 @@ Both `--rules` and `--ignore-rules` support prefix matching: `--rules Cohesion` 
 **Line**: one JSON object per line (for log pipelines).
 
 **YAML**: requires `pyyaml`.
+
+## Style runners
+
+rhetoric-lint has two optional style runners that run alongside the built-in Python rules.
+
+### Vale-compatible rules (`--style-dir`)
+
+Any directory of Vale-format `.yml` rule files can be loaded. Supported rule types: `existence`, `substitution`, `occurrence`, `metric`, `capitalization`, `repetition`, `consistency`, `conditional`, `readability`, `sequence`.
+
+```bash
+# Run built-in Rhetoric style set (TrivializingLanguage, Terminology, Inclusivity)
+rhetoric-lint --style-dir style-sets/ --style Rhetoric docs/
+
+# Run multiple style sets
+rhetoric-lint --style-dir style-sets/ --style Rhetoric,write-good docs/
+```
+
+The `Rhetoric` style set ships in `style-sets/Rhetoric/`:
+
+| Style rule | Type | Description |
+|-----------|------|-------------|
+| `Rhetoric.TrivializingLanguage` | existence | Flags `simply`, `easily`, `obviously`, `of course`, `straightforward` |
+| `Rhetoric.TrivializingLanguage-just` | existence | Flags `just` with temporal-use exceptions |
+| `Rhetoric.Terminology` | substitution | Suggests inclusive terminology replacements (`whitelist` → `allowlist`, etc.) |
+| `Rhetoric.Inclusivity` | substitution | Flags language with more inclusive alternatives |
+| `Rhetoric.InclusivityFlag` | existence | Flags terms without clean drop-in replacements |
+
+Genre gating: add a `genre:` field to any rule YAML to restrict it to matching document genres. Add `meta.yml` with `genre:` to gate an entire style set.
+
+### markdownlint structural rules
+
+12 structural MD rules run automatically (unless `--no-markdownlint`). Configure via `.markdownlint.json/.yaml/.yml` discovered from the file's directory. Inline suppression via HTML comments:
+
+```html
+<!-- markdownlint-disable MD013 -->
+Long line here is OK.
+<!-- markdownlint-enable MD013 -->
+```
+
+Rules with auto-fix support (applied by `--fix`): MD003, MD009, MD010, MD012, MD022, MD031, MD032.
+
+Python custom rules via `.markdownlint-cli2.yaml`:
+
+```yaml
+customRules:
+  - my_custom_rule.py
+```
+
+```python
+# my_custom_rule.py
+NAMES = ["my-rule"]
+def check(context, on_error):
+    for i, line in enumerate(context["lines"], 1):
+        if "FIXME" in line:
+            on_error(i, detail="FIXME found", fix="TODO")
+```
 
 ## Exit codes
 
@@ -134,6 +195,17 @@ generally good practice for both human readers and automated retrieval systems.
 | `Structure.ActionableHeadings` | suggestion | Noun-only headings in a task-oriented document |
 | `Curriculum.MissingAssessment` | suggestion | Curriculum section has no assessment element (genre-gated) |
 | `Engine.OversizedDocument` | suggestion | File exceeds NLP_MAX_CHARS; full-document NLP was truncated (section-level checks still run on the complete file) |
+
+### NLP rules (spaCy-based)
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| `Attention.SyntacticDepth` | suggestion | Sentence has deeply nested clause structure (dep-tree depth + subordinate clause count); gated to concept/explanation sections |
+| `Rhetoric.Nominalization` | suggestion | Nominalized verb form in "the X of" prepositional pattern (concept/explanation sections only) |
+| `Attention.MetricDensity` | suggestion | Sentence has high proportion of numeric tokens (>30% in ≥12-token sentences) |
+| `Rhetoric.ToneImbalance` | suggestion | Document tone is unbalanced: excessive authoritative modals (in how-to/tutorial) or negative framing |
+| `Terminology.PreferredForm` | suggestion | Term does not match required form in `TERMINOLOGY_FILE` |
+| `Symmetry.TabVariantBalance` | suggestion | Content-tab variants have unequal step counts (exceeds `TAB_VARIANT_STEP_TOLERANCE`) |
 
 ### Architecture Decision Records (ADR)
 

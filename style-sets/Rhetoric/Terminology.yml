@@ -1,0 +1,14 @@
+extends: substitution
+message: "Non-inclusive term: '%s' — consider the suggested replacement."
+level: suggestion
+scope: paragraph
+ignorecase: true
+swap:
+  whitelist: allowlist
+  blacklist: denylist
+  'master branch': 'main branch'
+  'master/slave': 'primary/replica'
+  'master': 'main'
+  'slave': 'replica'
+  'sanity check': 'quick check'
+  'grandfathered': 'legacy'

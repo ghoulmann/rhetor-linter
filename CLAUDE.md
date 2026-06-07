@@ -19,6 +19,7 @@ pipenv run python -m pytest -k "test_unity" -q     # by name pattern
 make lint-self                           # run rhetoric-lint on docs/ + README.md
 rhetoric-lint rules                      # list all rules with severity
 rhetoric-lint --format text --min-severity warning docs/api.md
+rhetoric-lint --style-dir style-sets/ --style Rhetoric docs/api.md   # include Vale YAML rules
 ```
 
 Tests require the package to be importable. Run via `pipenv run python -m pytest` or activate the venv first; bare `python -m pytest` will fail if the env is not active.
@@ -29,12 +30,14 @@ spaCy model must be present: `python -m spacy download en_core_web_sm`. If absen
 
 The linter is a single-process Python package (`rhetoric_lint/`). The main pipeline:
 
-1. **`main.py`** — Typer CLI. Discovers files, loads config (merges `.rhetoric-lint.yaml` keys into `const`), calls `RhetoricEngine`.
-2. **`engine.py`** — `RhetoricEngine`. Preprocesses text (strips YAML frontmatter, link-ref definitions, HTML comments/tags; rewrites MyST/MkDocs/pymdownx admonitions and GFM alerts to blockquotes; rewrites content-tab `===` blocks), parses with mistletoe, runs spaCy on each paragraph, classifies the document, then dispatches all rule modules.
+1. **`main.py`** — Typer CLI. Discovers files, loads config (merges `.rhetoric-lint.yaml` keys into `const`), initialises runners, calls `RhetoricEngine`. Flags: `--style-dir`, `--style`, `--no-vale`, `--no-markdownlint`, `--fix`.
+2. **`engine.py`** — `RhetoricEngine`. Preprocesses text (strips YAML frontmatter, link-ref definitions, HTML comments/tags; rewrites MyST/MkDocs/pymdownx admonitions and GFM alerts to blockquotes; rewrites content-tab `===` blocks), parses with mistletoe, runs spaCy on each paragraph, classifies the document, dispatches all rule modules, then dispatches runners.
 3. **`genre.py` / `topic_type.py` / `template_type.py`** — Three-dimensional classification runs before rules. Genre is document-level; topic type is per-section; doc template is a technical sub-genre. Results are in `context["genre"]`, `section["topic_type"]`, and `context["doc_template"]`.
-4. **`rules/*.py`** — ~22 modules, each exporting `check(context) -> list[dict]`. Exceptions are silently swallowed so one broken rule never blocks the rest.
-5. **`overlap.py`** — All Jaccard/containment/givenness math lives here. Rules call `channelize_tokens`, `set_overlap_metrics`, `channel_overlap_metrics`, `section_coherence_metrics`. Never reimplement overlap logic in a rule.
-6. **`const.py`** — All thresholds and word lists. Config file keys override `const` attributes at runtime. No magic numbers in rule modules.
+4. **`rules/*.py`** — ~28 modules, each exporting `check(context) -> list[dict]`. Exceptions are silently swallowed so one broken rule never blocks the rest.
+5. **`runners/`** — External style runners (loaded after Python rules). `base.py`: `StyleRunner` ABC. `vale_style.py`: `ValeStyleRunner` — all 10 Vale rule types, genre gating, vocab suppression. `markdownlint.py`: `MarkdownlintRunner` — 12 MD rules + CLI2 Python custom rule loader. `_readability.py`: shared readability preprocessing + Lexi composite score (textstat, soft dependency).
+6. **`fix.py`** — `apply_fixes(path, findings)`: groups fixable findings by file and line, applies `fix` dicts rightmost-column-first. Called by `--fix` flag.
+7. **`overlap.py`** — All Jaccard/containment/givenness math lives here. Rules call `channelize_tokens`, `set_overlap_metrics`, `channel_overlap_metrics`, `section_coherence_metrics`. Never reimplement overlap logic in a rule.
+8. **`const.py`** — All thresholds and word lists. Config file keys override `const` attributes at runtime. No magic numbers in rule modules.
 
 ### `context` dict passed to every rule
 
@@ -82,16 +85,31 @@ Test files map roughly to rule categories: `test_adr.py`, `test_postmortem.py`, 
 
 Rules with **no dedicated test file yet** (good contribution targets): `Heading.NearDuplicate`, `Rhetoric.ComplexitySpike`, `Rhetoric.ThroatClearing`, `Attention.SplitAttention`, `Cohesion.DeicticGhost`, `Resilience.ErrorPathPresence`, `Navigation.FindabilityMap`, `Structure.WallOfText`, `Structure.ActionableHeadings`, `Curriculum.MissingAssessment`.
 
+## Adding a Vale-style YAML rule
+
+1. Create a YAML file in `style-sets/<StyleName>/` following Vale's rule format.
+2. Supported `extends:` values: `existence`, `substitution`, `occurrence`, `metric`, `capitalization`, `repetition`, `consistency`, `conditional`, `readability`, `sequence`.
+3. Load at runtime: `rhetoric-lint --style-dir style-sets/ --style <StyleName> docs/`.
+4. Check name is `"{StyleName}.{yaml_stem}"`.
+5. Genre-gate: add `genre: howto, tutorial` to the rule YAML, or `meta.yml` with `genre:` for the whole style.
+
 ## Active development
 
 Single source of truth: `.claude/plans/plan-support-for-markdownlint-joyful-teacup.md` (all addendums integrated).
 
-Implementation tiers:
+Status as of 2026-06-07:
 
-- **Tier 0** — SP1: `StyleRunner` ABC + fix framework + `CrossFileContext` stub
-- **Tier 1** (parallel) — SP2: Vale existence/substitution; SP3: markdownlint native rules; SP8: five NLP rules + `TabVariantBalance`; SP_CI: pre-commit + GH Actions; SP_CONTRAST: `Rhetoric.UnresolvedContrast`
-- **Tier 2** (parallel) — SP4: Vale extended types + `_readability.py`; SP5: cli2 custom rule extension; SP6: TrivializingLanguage migration; SP_SPELL: Vale spelling type
-- **Tier 3** — SP9: four ProsePartner-gap rules (needs SP4 + SP8); SP7: Rhetoric YAML additions
-- **Backlog** (blocked on CrossFileContext from SP1) — SP10: `DependencyReveal`; SP11: `ConceptReintroductionPenalty`
+| SP | Status | Description |
+|----|--------|-------------|
+| SP1 | ✅ done | Runner infrastructure + fix framework + CrossFileContext stub |
+| SP2 | ✅ done | Vale existence + substitution |
+| SP3 | ✅ done | markdownlint 12 native MD rules |
+| SP4 | ✅ done | Vale extended types (8 types) + `_readability.py` |
+| SP5 | ✅ done | markdownlint-cli2 Python custom rule extension |
+| SP6 | ✅ done | TrivializingLanguage migrated to Vale YAML (`style-sets/Rhetoric/`) |
+| SP7 | ✅ done | Rhetoric YAML additions: Terminology, Inclusivity, InclusivityFlag |
+| SP8 | ✅ done | 6 NLP rules: SyntacticDepth, Nominalization, MetricDensity, ToneImbalance, PreferredForm, TabVariantBalance |
+| SP9 | next | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, ReadabilityGrade, UnsupportedClaim (needs SP4 + SP8) |
+| SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.
