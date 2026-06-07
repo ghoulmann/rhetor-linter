@@ -1,0 +1,6 @@
+extends: metric
+message: "Sentence length metric %s exceeds threshold."
+level: suggestion
+scope: summary
+formula: "words / sentences"
+condition: "> 5"

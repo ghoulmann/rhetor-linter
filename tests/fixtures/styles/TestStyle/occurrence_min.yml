@@ -1,0 +1,7 @@
+extends: occurrence
+message: "Required token '%s' not found."
+level: warning
+scope: paragraph
+token: summary
+min: 1
+ignorecase: true

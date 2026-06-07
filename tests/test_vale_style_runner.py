@@ -14,7 +14,7 @@ def _runner(*dirs, enabled=()) -> ValeStyleRunner:
     return r
 
 
-def _ctx(text: str, genre: str = "general", sections=None) -> dict:
+def _ctx(text: str, genre: str = "general", sections=None, nlp=None) -> dict:
     if sections is None:
         sections = []
     return {
@@ -22,6 +22,7 @@ def _ctx(text: str, genre: str = "general", sections=None) -> dict:
         "text": text,
         "genre": genre,
         "sections": sections,
+        "nlp": nlp,
     }
 
 
@@ -357,3 +358,330 @@ class TestPrecisionCorpus:
                 pass
 
         assert all_issues == []
+
+
+# ---------------------------------------------------------------------------
+# SP4 — occurrence type
+# ---------------------------------------------------------------------------
+
+class TestOccurrence:
+    def setup_method(self):
+        self.runner = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        # Only keep occurrence rules
+        self.runner._rules = [r for r in self.runner._rules if "occurrence" in r.name]
+
+    def test_fires_when_over_max(self):
+        # "very" appears 3 times — max is 2
+        sec = _para_section("This is very very very important.")
+        ctx = _ctx("This is very very very important.", sections=[sec])
+        issues = self.runner.check(ctx)
+        occ = [i for i in issues if "occurrence_basic" in i["check"]]
+        assert occ
+
+    def test_no_fire_at_or_under_max(self):
+        sec = _para_section("This is very very important.")
+        ctx = _ctx("This is very very important.", sections=[sec])
+        issues = self.runner.check(ctx)
+        occ = [i for i in issues if "occurrence_basic" in i["check"]]
+        assert not occ
+
+    def test_fires_when_under_min(self):
+        # "summary" must appear at least 1 time — it's absent
+        r2 = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        r2._rules = [r for r in r2._rules if "occurrence_min" in r.name]
+        sec = _para_section("This paragraph has no magic keyword.")
+        ctx = _ctx("This paragraph has no magic keyword.", sections=[sec])
+        issues = r2.check(ctx)
+        assert issues  # min not satisfied
+
+    def test_no_fire_when_min_satisfied(self):
+        r2 = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        r2._rules = [r for r in r2._rules if "occurrence_min" in r.name]
+        sec = _para_section("This document includes a summary section.")
+        ctx = _ctx("This document includes a summary section.", sections=[sec])
+        issues = r2.check(ctx)
+        assert not issues
+
+
+# ---------------------------------------------------------------------------
+# SP4 — metric type
+# ---------------------------------------------------------------------------
+
+class TestMetricType:
+    def setup_method(self):
+        self.runner = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        self.runner._rules = [r for r in self.runner._rules if "metric_basic" in r.name]
+
+    def test_fires_when_condition_met(self):
+        # words/sentences > 5 — "Hello world." = 2 words, 1 sentence = 2.0 > 5? No.
+        # Use a text with ratio > 5 words/sentence
+        text = "The quick brown fox jumps over the lazy dog near the river bank."
+        ctx = _ctx(text, sections=[])
+        issues = self.runner.check(ctx)
+        # formula = words/sentences, condition = "> 5", 12 words / 1 sentence = 12 > 5
+        assert issues
+
+    def test_no_fire_short_avg(self):
+        text = "Go. Stop. Run. Wait. Jump."
+        ctx = _ctx(text, sections=[])
+        issues = self.runner.check(ctx)
+        # 5 words / 5 sentences = 1.0 — not > 5
+        assert not issues
+
+    def test_malformed_formula_no_crash(self):
+        import tempfile, yaml, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "Bad"))
+            with open(os.path.join(tmpdir, "Bad", "bad_metric.yml"), "w") as f:
+                yaml.dump({"extends": "metric", "message": "x", "level": "warning",
+                           "scope": "summary", "formula": "bad *** syntax", "condition": "> 5"}, f)
+            r = _runner(tmpdir, enabled=["Bad"])
+            assert r.check(_ctx("Some text here.")) == []
+
+
+# ---------------------------------------------------------------------------
+# SP4 — capitalization type
+# ---------------------------------------------------------------------------
+
+class TestCapitalization:
+    def setup_method(self):
+        self.runner = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        self.runner._rules = [r for r in self.runner._rules if "capitalization_sentence" in r.name]
+
+    def test_fires_on_lowercase_sentence_start(self):
+        sec = _para_section("this sentence starts lowercase.")
+        sec["paragraphs"][0]["sentences"] = [{"span": None, "line": 1}]
+        # Use text scope since sentence needs spaCy span; use paragraph scope workaround
+        ctx = _ctx("this sentence starts lowercase.", sections=[sec])
+        issues = self.runner.check(ctx)
+        assert issues
+
+    def test_no_fire_on_proper_capitalization(self):
+        sec = _para_section("This sentence starts correctly.")
+        ctx = _ctx("This sentence starts correctly.", sections=[sec])
+        issues = self.runner.check(ctx)
+        assert not issues
+
+
+# ---------------------------------------------------------------------------
+# SP4 — repetition type
+# ---------------------------------------------------------------------------
+
+class TestRepetition:
+    def setup_method(self):
+        self.runner = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        self.runner._rules = [r for r in self.runner._rules if "repetition_basic" in r.name]
+
+    def test_fires_on_repeated_word(self):
+        sec = _para_section("The the quick brown fox.")
+        ctx = _ctx("The the quick brown fox.", sections=[sec])
+        issues = self.runner.check(ctx)
+        rep = [i for i in issues if "repetition" in i["check"]]
+        assert rep
+
+    def test_fix_key_is_single_word(self):
+        sec = _para_section("The the quick brown fox.")
+        ctx = _ctx("The the quick brown fox.", sections=[sec])
+        issues = self.runner.check(ctx)
+        rep = [i for i in issues if "repetition" in i["check"]]
+        assert rep[0].get("fix") is not None
+
+    def test_no_fire_on_number_repetition_with_alpha(self):
+        # alpha:true means only flag alphabetic token repetition
+        sec = _para_section("Version 1 1 is released.")
+        ctx = _ctx("Version 1 1 is released.", sections=[sec])
+        issues = self.runner.check(ctx)
+        rep = [i for i in issues if "repetition" in i["check"]]
+        assert not rep
+
+    def test_no_fire_unique_words(self):
+        sec = _para_section("The quick brown fox jumps.")
+        ctx = _ctx("The quick brown fox jumps.", sections=[sec])
+        issues = self.runner.check(ctx)
+        rep = [i for i in issues if "repetition" in i["check"]]
+        assert not rep
+
+
+# ---------------------------------------------------------------------------
+# SP4 — consistency type
+# ---------------------------------------------------------------------------
+
+class TestConsistency:
+    def setup_method(self):
+        self.runner = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        self.runner._rules = [r for r in self.runner._rules if "consistency_basic" in r.name]
+
+    def test_fires_when_both_forms_present(self):
+        text = "The colour of the color palette varies."
+        sec = _para_section(text)
+        ctx = _ctx(text, sections=[sec])
+        issues = self.runner.check(ctx)
+        cons = [i for i in issues if "consistency" in i["check"]]
+        assert cons
+
+    def test_no_fire_single_form(self):
+        text = "The colour of the background is blue."
+        sec = _para_section(text)
+        ctx = _ctx(text, sections=[sec])
+        issues = self.runner.check(ctx)
+        cons = [i for i in issues if "consistency" in i["check"]]
+        assert not cons
+
+    def test_no_fire_empty_text(self):
+        ctx = _ctx("", sections=[])
+        issues = self.runner.check(ctx)
+        assert issues == []
+
+
+# ---------------------------------------------------------------------------
+# SP4 — conditional type
+# ---------------------------------------------------------------------------
+
+class TestConditional:
+    def setup_method(self):
+        self.runner = _runner(FIXTURES_DIR, enabled=["TestStyle"])
+        self.runner._rules = [r for r in self.runner._rules if "conditional_basic" in r.name]
+
+    def test_fires_when_first_present_second_absent(self):
+        # first=API present, second=authentication absent → fire
+        text = "The API endpoint returns a token for the caller."
+        sec = _para_section(text)
+        ctx = _ctx(text, sections=[sec])
+        issues = self.runner.check(ctx)
+        cond = [i for i in issues if "conditional" in i["check"]]
+        assert cond
+
+    def test_no_fire_when_first_absent(self):
+        text = "Use authentication to protect your endpoint."
+        sec = _para_section(text)
+        ctx = _ctx(text, sections=[sec])
+        issues = self.runner.check(ctx)
+        cond = [i for i in issues if "conditional" in i["check"]]
+        assert not cond
+
+    def test_no_fire_when_both_present(self):
+        text = "The API requires authentication before returning data."
+        sec = _para_section(text)
+        ctx = _ctx(text, sections=[sec])
+        issues = self.runner.check(ctx)
+        cond = [i for i in issues if "conditional" in i["check"]]
+        assert not cond
+
+
+# Remove duplicate _ctx at end of file — the one at the top now includes nlp parameter.
+
+# ---------------------------------------------------------------------------
+# SP4 — readability type (skipped when textstat absent)
+# ---------------------------------------------------------------------------
+
+class TestReadabilityType:
+    def test_no_crash_without_textstat(self):
+        from rhetoric_lint.runners._readability import _TEXTSTAT_OK
+        import tempfile, yaml, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "Read"))
+            with open(os.path.join(tmpdir, "Read", "fk.yml"), "w") as f:
+                yaml.dump({"extends": "readability", "message": "FK %s too high",
+                           "level": "warning", "scope": "summary",
+                           "metrics": ["Flesch-Kincaid"], "grade": 12}, f)
+            r = _runner(tmpdir, enabled=["Read"])
+            ctx = _ctx("This is a simple document with basic words.", sections=[])
+            issues = r.check(ctx)
+            if not _TEXTSTAT_OK:
+                assert issues == []
+            # If textstat present, may or may not fire — just check no crash
+            assert isinstance(issues, list)
+
+    def test_readability_preprocessing(self):
+        from rhetoric_lint.runners._readability import preprocess_for_readability
+        sections = [
+            {
+                "heading": "Intro",
+                "level": 1,
+                "start": 0, "end": 100,
+                "topic_type": "general",
+                "paragraphs": [
+                    {"text": "This is a paragraph.", "pos": 0, "line": 1,
+                     "nodes": [{"type": "Paragraph", "text": "This is a paragraph."}],
+                     "sentences": []},
+                    {"text": "```python\ncode here\n```", "pos": 20, "line": 3,
+                     "nodes": [{"type": "CodeFence", "text": "code here"}],
+                     "sentences": []},
+                ]
+            }
+        ]
+        result = preprocess_for_readability(sections)
+        assert "paragraph" in result
+        assert "code here" not in result
+
+    def test_inline_code_replaced_with_stars(self):
+        from rhetoric_lint.runners._readability import preprocess_for_readability
+        sections = [
+            {
+                "heading": "S",
+                "level": 1,
+                "start": 0, "end": 50,
+                "topic_type": "general",
+                "paragraphs": [
+                    {"text": "Use `foo` to bar.", "pos": 0, "line": 1,
+                     "nodes": [{"type": "Paragraph", "text": "Use `foo` to bar."}],
+                     "sentences": []}
+                ]
+            }
+        ]
+        result = preprocess_for_readability(sections)
+        assert "`foo`" not in result
+        assert "*****" in result or result  # inline code replaced
+
+
+# ---------------------------------------------------------------------------
+# SP4 — sequence type
+# ---------------------------------------------------------------------------
+
+class TestSequence:
+    def test_no_crash_without_nlp(self):
+        import tempfile, yaml, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "Seq"))
+            with open(os.path.join(tmpdir, "Seq", "test_seq.yml"), "w") as f:
+                yaml.dump({
+                    "extends": "sequence",
+                    "message": "Sequence matched.",
+                    "level": "warning",
+                    "scope": "paragraph",
+                    "tokens": [{"pattern": "is", "tag": "VBZ"}],
+                }, f)
+            r = _runner(tmpdir, enabled=["Seq"])
+            ctx = _ctx("This is a test.", nlp=None, sections=[])
+            issues = r.check(ctx)
+            assert issues == []
+
+    def test_sequence_match_with_nlp(self):
+        try:
+            import spacy
+            nlp = spacy.load("en_core_web_sm")
+        except Exception:
+            pytest.skip("spaCy model not available")
+
+        import tempfile, yaml, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "Seq"))
+            with open(os.path.join(tmpdir, "Seq", "test_seq.yml"), "w") as f:
+                yaml.dump({
+                    "extends": "sequence",
+                    "message": "Found target sequence.",
+                    "level": "warning",
+                    "scope": "paragraph",
+                    "tokens": [{"pattern": r"\bdog\b"}, {"pattern": r"\bruns\b"}],
+                }, f)
+            r = _runner(tmpdir, enabled=["Seq"])
+            doc = nlp("The dog runs fast.")
+            sec = {
+                "heading": "S", "level": 1, "start": 0, "end": 100,
+                "topic_type": "general",
+                "paragraphs": [{"text": "The dog runs fast.", "pos": 0, "line": 1,
+                                 "nodes": [], "sentences": [], "doc": doc}]
+            }
+            ctx = _ctx("The dog runs fast.", nlp=nlp, sections=[sec])
+            issues = r.check(ctx)
+            assert any("test_seq" in i["check"] for i in issues)

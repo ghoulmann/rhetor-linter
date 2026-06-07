@@ -1,0 +1,5 @@
+extends: capitalization
+message: "Sentence should start with a capital letter: '%s'."
+level: warning
+scope: paragraph
+match: "$sentence"

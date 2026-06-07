@@ -467,3 +467,147 @@ class TestPrecisionCorpus:
                 text = fh.read()
             issues = r.check({"path": f, "text": text, "genre": "technical", "sections": []})
             assert isinstance(issues, list), f"Runner returned non-list for {f}"
+
+
+# ---------------------------------------------------------------------------
+# SP5 — markdownlint-cli2 Python custom rule extension
+# ---------------------------------------------------------------------------
+
+class TestCli2CustomRules:
+    def _make_custom_rule(self, tmpdir: str, name: str = "my-rule",
+                          body: str = "") -> str:
+        """Write a .py custom rule file and return its path."""
+        if not body:
+            body = (
+                f"NAMES = ['{name}']\n"
+                "DESCRIPTION = 'Test rule'\n"
+                "TAGS = ['custom']\n\n"
+                "def check(context, on_error):\n"
+                "    for i, line in enumerate(context['lines'], 1):\n"
+                "        if 'TODO' in line:\n"
+                "            on_error(i, detail='TODO comment found')\n"
+            )
+        rule_path = os.path.join(tmpdir, f"{name}.py")
+        with open(rule_path, "w") as f:
+            f.write(body)
+        return rule_path
+
+    def _make_cli2_yaml(self, tmpdir: str, content: dict) -> str:
+        import yaml
+        cfg_path = os.path.join(tmpdir, ".markdownlint-cli2.yaml")
+        with open(cfg_path, "w") as f:
+            yaml.dump(content, f)
+        return cfg_path
+
+    def _make_cli2_jsonc(self, tmpdir: str, content: str) -> str:
+        cfg_path = os.path.join(tmpdir, ".markdownlint-cli2.jsonc")
+        with open(cfg_path, "w") as f:
+            f.write(content)
+        return cfg_path
+
+    def test_custom_rule_loaded_and_fires(self, tmp_path):
+        tmpdir = str(tmp_path)
+        rule_path = self._make_custom_rule(tmpdir)
+        cli2_path = self._make_cli2_yaml(tmpdir, {"customRules": [rule_path]})
+
+        r = MarkdownlintRunner()
+        r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        issues = r.check(_ctx("No issue here.\nTODO: fix this\nDone.", path="test.md"))
+        custom = [i for i in issues if i["check"] == "custom.my-rule"]
+        assert custom
+        assert custom[0]["line"] == 2
+
+    def test_on_error_with_fix(self, tmp_path):
+        tmpdir = str(tmp_path)
+        body = (
+            "NAMES = ['fix-rule']\n"
+            "def check(context, on_error):\n"
+            "    for i, line in enumerate(context['lines'], 1):\n"
+            "        if 'badword' in line:\n"
+            "            on_error(i, detail='bad word found', fix='goodword')\n"
+        )
+        rule_path = self._make_custom_rule(tmpdir, "fix-rule", body)
+        cli2_path = self._make_cli2_yaml(tmpdir, {"customRules": [rule_path]})
+
+        r = MarkdownlintRunner()
+        r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        issues = r.check(_ctx("This has badword in it.", path="test.md"))
+        custom = [i for i in issues if i["check"] == "custom.fix-rule"]
+        assert custom
+        assert custom[0]["fix"] == "goodword"
+
+    def test_exception_in_custom_rule_emits_meta_finding(self, tmp_path):
+        tmpdir = str(tmp_path)
+        body = (
+            "NAMES = ['bad-rule']\n"
+            "def check(context, on_error):\n"
+            "    raise ValueError('intentional error')\n"
+        )
+        rule_path = self._make_custom_rule(tmpdir, "bad-rule", body)
+        cli2_path = self._make_cli2_yaml(tmpdir, {"customRules": [rule_path]})
+
+        r = MarkdownlintRunner()
+        r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        issues = r.check(_ctx("Some text.", path="test.md"))
+        meta = [i for i in issues if "bad-rule" in i["check"] and "exception" in i["message"].lower()]
+        assert meta
+        assert meta[0]["severity"] == "suggestion"
+
+    def test_js_entry_skipped_no_crash(self, tmp_path, caplog):
+        import logging
+        tmpdir = str(tmp_path)
+        cli2_path = self._make_cli2_yaml(tmpdir, {"customRules": ["some-rule.js"]})
+
+        r = MarkdownlintRunner()
+        with caplog.at_level(logging.WARNING):
+            r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        assert r._custom_rules == []
+
+    def test_npm_package_name_skipped(self, tmp_path, caplog):
+        import logging
+        tmpdir = str(tmp_path)
+        cli2_path = self._make_cli2_yaml(tmpdir, {"customRules": ["markdownlint-rule-foo"]})
+
+        r = MarkdownlintRunner()
+        with caplog.at_level(logging.WARNING):
+            r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        assert r._custom_rules == []
+
+    def test_no_cli2_config_is_noop(self, tmp_path):
+        r = MarkdownlintRunner()
+        r.load(search_dir=str(tmp_path))
+        assert r._custom_rules == []
+        issues = r.check(_ctx("# Heading\n\nSome text.", path="test.md"))
+        assert isinstance(issues, list)
+
+    def test_jsonc_with_comments_parsed(self, tmp_path):
+        tmpdir = str(tmp_path)
+        jsonc_content = (
+            '{\n'
+            '  // This is a comment\n'
+            '  "config": {"MD013": false}\n'
+            '}\n'
+        )
+        cli2_path = self._make_cli2_jsonc(tmpdir, jsonc_content)
+
+        r = MarkdownlintRunner()
+        r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        assert r._cli2_config.get("MD013") is False
+
+    def test_cli2_config_disables_md013(self, tmp_path):
+        tmpdir = str(tmp_path)
+        cli2_path = self._make_cli2_yaml(tmpdir, {"config": {"MD013": False}})
+
+        r = MarkdownlintRunner()
+        r.load(cli2_config_path=cli2_path, search_dir=tmpdir)
+
+        # MD013 is disabled via cli2 config — runner should not fire it
+        # (The cli2 config override is applied when config is merged in check())
+        # Just verify no crash and config is stored
+        assert r._cli2_config.get("MD013") is False

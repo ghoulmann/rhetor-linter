@@ -1,0 +1,7 @@
+extends: conditional
+message: "Found '%s' but missing required companion term."
+level: warning
+scope: paragraph
+first: API
+second: authentication
+ignorecase: true

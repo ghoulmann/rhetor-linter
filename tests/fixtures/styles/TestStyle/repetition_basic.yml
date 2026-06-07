@@ -1,0 +1,6 @@
+extends: repetition
+message: "Repeated word: '%s'."
+level: warning
+scope: paragraph
+tokens: []
+alpha: true

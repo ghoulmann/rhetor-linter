@@ -1,11 +1,14 @@
-"""SP3: Native markdownlint rules — MD001/003/009/010/012/013/022/025/031/032/040/041."""
+"""SP3/SP5: Native markdownlint rules + markdownlint-cli2 Python custom rule extension."""
 from __future__ import annotations
 
+import importlib.util
 import json
+import logging
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import yaml
 
@@ -90,10 +93,12 @@ def _load_config(config_path: str, file_path: str) -> Dict[str, Any]:
 
 
 def _rule_cfg(config: Dict[str, Any], rule_id: str) -> Optional[Dict[str, Any]]:
-    """Return per-rule config dict, or None if disabled."""
+    """Return per-rule config dict, or None if disabled (entry=False or disabled:true)."""
     entry = config.get(rule_id)
     if entry is None:
         return _DEFAULTS.get(rule_id, {})
+    if entry is False:
+        return None
     if isinstance(entry, dict) and entry.get("disabled"):
         return None
     merged = dict(_DEFAULTS.get(rule_id, {}))
@@ -688,14 +693,151 @@ _RULE_FNS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# SP5 — markdownlint-cli2 Python custom rule extension
+# ---------------------------------------------------------------------------
+
+_CLI2_COMMENT_RE = re.compile(r"^\s*//.*$", re.MULTILINE)
+_JS_EXTENSIONS = frozenset({".js", ".cjs", ".mjs"})
+
+_log = logging.getLogger(__name__)
+
+
+def _load_cli2_config(explicit_path: str, search_dir: str) -> Dict[str, Any]:
+    """Discover and parse .markdownlint-cli2.jsonc or .markdownlint-cli2.yaml."""
+    candidates = [
+        ".markdownlint-cli2.jsonc",
+        ".markdownlint-cli2.yaml",
+        ".markdownlint-cli2.yml",
+    ]
+    if explicit_path:
+        paths_to_try = [Path(explicit_path)]
+    else:
+        start = Path(search_dir) if search_dir else Path(".")
+        paths_to_try = []
+        cur = start.resolve()
+        for _ in range(12):
+            for name in candidates:
+                p = cur / name
+                if p.exists():
+                    paths_to_try.append(p)
+                    break
+            parent = cur.parent
+            if parent == cur:
+                break
+            cur = parent
+    if not paths_to_try:
+        return {}
+
+    path = paths_to_try[0]
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+
+    try:
+        name = path.name.lower()
+        if name.endswith(".jsonc") or name.endswith(".json"):
+            stripped = _CLI2_COMMENT_RE.sub("", raw)
+            data = json.loads(stripped)
+        else:
+            data = yaml.safe_load(raw) or {}
+    except Exception:
+        return {}
+
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _load_custom_rule(entry: Any, base_dir: str, rules: List[Dict[str, Any]]) -> None:
+    """Load one customRules entry. .py → import as module. JS/npm → log and skip."""
+    if not isinstance(entry, str):
+        return
+    suffix = Path(entry).suffix.lower()
+    if suffix in _JS_EXTENSIONS or (not suffix and "/" not in entry and "\\" not in entry):
+        _log.warning("JS custom rule %r skipped — only Python (.py) custom rules supported natively", entry)
+        return
+    if suffix != ".py":
+        _log.warning("Custom rule %r skipped — only Python (.py) custom rules supported natively", entry)
+        return
+
+    rule_path = Path(entry) if Path(entry).is_absolute() else Path(base_dir) / entry
+    if not rule_path.exists():
+        _log.warning("Custom rule file not found: %s", rule_path)
+        return
+
+    spec = importlib.util.spec_from_file_location(f"_mdcustom_{rule_path.stem}", rule_path)
+    if not spec or not spec.loader:
+        return
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+    except Exception as exc:
+        _log.warning("Failed to load custom rule %s: %s", rule_path, exc)
+        return
+
+    names = getattr(module, "NAMES", [rule_path.stem])
+    check_fn = getattr(module, "check", None)
+    if not callable(check_fn):
+        _log.warning("Custom rule %s has no callable check()", rule_path)
+        return
+
+    for name in (names if names else [rule_path.stem]):
+        rules.append({"name": name, "check": check_fn, "path": str(rule_path)})
+
+
+def _run_custom_rule(crule: Dict[str, Any], lines: List[str], path: str,
+                     issues: List[Dict[str, Any]]) -> None:
+    """Execute one loaded Python custom rule via its check(context, on_error) interface."""
+    name = crule.get("name", "custom")
+    check_key = f"custom.{name}"
+    fn: Callable = crule["check"]
+
+    def on_error(line_no: int, detail: str = "", fix: Any = None) -> None:
+        issue: Dict[str, Any] = {
+            "path": path,
+            "line": line_no,
+            "column": 1,
+            "message": detail or f"{name} violation",
+            "severity": "suggestion",
+            "check": check_key,
+        }
+        if fix is not None:
+            issue["fix"] = fix
+        issues.append(issue)
+
+    ctx = {"lines": lines, "path": path}
+    fn(ctx, on_error)
+
+
+# ---------------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------------
+
 class MarkdownlintRunner(StyleRunner):
-    """Native markdownlint rule runner (MD001/003/009/010/012/013/022/025/031/032/040/041)."""
+    """Native markdownlint rule runner (MD001/003/009/010/012/013/022/025/031/032/040/041)
+    + markdownlint-cli2 Python custom rule extension (SP5)."""
 
     def __init__(self) -> None:
         self._config_path: str = ""
+        self._custom_rules: List[Dict[str, Any]] = []  # SP5: loaded Python custom rules
+        self._cli2_config: Dict[str, Any] = {}          # SP5: merged cli2 rule config
 
-    def load(self, config_path: str = "", **kwargs: Any) -> None:
+    def load(self, config_path: str = "", cli2_config_path: str = "",
+             search_dir: str = "", **kwargs: Any) -> None:
         self._config_path = config_path or ""
+        self._custom_rules = []
+        self._cli2_config = {}
+        # SP5: discover and load .markdownlint-cli2.* config — explicit path or explicit search_dir only
+        search = search_dir or (os.path.dirname(config_path) if config_path else "")
+        if not cli2_config_path and not search:
+            return  # no auto-discovery without an explicit search root
+        cli2_data = _load_cli2_config(cli2_config_path or "", search)
+        if cli2_data:
+            self._cli2_config = cli2_data.get("config", {})
+            for entry in cli2_data.get("customRules", []):
+                _load_custom_rule(entry, search, self._custom_rules)
 
     def check(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
         path = context.get("path", "")
@@ -708,6 +850,9 @@ class MarkdownlintRunner(StyleRunner):
 
         lines = text.splitlines(keepends=True)
         config = _load_config(self._config_path, path)
+        # SP5: merge cli2 config overrides (cli2 takes precedence)
+        if self._cli2_config:
+            config = {**config, **self._cli2_config}
         fence_set = _code_fence_lines(lines)
         suppressed = _suppressed_lines(lines)
 
@@ -739,5 +884,17 @@ class MarkdownlintRunner(StyleRunner):
                 issues.extend(_md041(lines, cfg41, suppressed, fence_set, path, _severity("MD041"), genre))
             except Exception:
                 pass
+
+        # SP5: run Python custom rules
+        for crule in self._custom_rules:
+            try:
+                _run_custom_rule(crule, lines, path, issues)
+            except Exception as exc:
+                issues.append({
+                    "path": path, "line": 1, "column": 1,
+                    "message": f"Custom rule '{crule.get('name', '?')}' raised an exception: {exc}",
+                    "severity": "suggestion",
+                    "check": f"custom.{crule.get('name', 'unknown')}",
+                })
 
         return issues

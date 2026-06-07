@@ -1,0 +1,7 @@
+extends: occurrence
+message: "Token '%s' appears too often in this scope."
+level: warning
+scope: paragraph
+token: very
+max: 2
+ignorecase: true
