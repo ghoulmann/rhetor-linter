@@ -581,3 +581,71 @@ TONE_INSTRUCTIONAL_GENRES = frozenset({"howto", "tutorial"})
 
 # Symmetry.TabVariantBalance
 TAB_VARIANT_STEP_TOLERANCE = 1
+
+# ---------------------------------------------------------------------------
+# F5 — Dimension → rule prefix mapping
+# Five curated scoring dimensions. Rules are assigned by their check prefix.
+# Vale YAML rules are bucketed under Style; readability YAML under Readability.
+# ---------------------------------------------------------------------------
+
+DIMENSION_MAP: dict = {
+    "Clarity": [
+        "Rhetoric",
+        "Attention",
+        "Cohesion",
+        "Coherence",
+    ],
+    "Structure": [
+        "Heading",
+        "Symmetry",
+        "Structure",
+        "Navigation",
+    ],
+    "Completeness": [
+        "Completeness",
+        "Resilience",
+        "Curriculum",
+    ],
+    "Style": [
+        "Unity",
+        "Lexical",
+        "Terminology",
+        # Vale YAML style rules (any check containing a dot-separated style prefix)
+        "Rhetoric.TrivializingLanguage",
+        "Rhetoric.Terminology",
+        "Rhetoric.Inclusivity",
+        "Rhetoric.InclusivityFlag",
+        "Clarity.FleschReadingEase",
+        "Clarity.Nominalizations",
+        "Clarity.PrepositionalDensity",
+    ],
+    "Readability": [
+        "Rhetoric.ReadabilityGrade",
+        "Clarity.FleschReadingEase",
+    ],
+}
+
+# Fallback dimension for rules not matched by any prefix above.
+DIMENSION_DEFAULT = "Style"
+
+# ---------------------------------------------------------------------------
+# F2 — Frontmatter field aliases
+# Canonical key → list of accepted aliases (all lowercased at parse time).
+# ---------------------------------------------------------------------------
+
+FRONTMATTER_ALIASES: dict = {
+    "topic_type":  ["topic_type", "doctype", "doc_type", "type"],
+    "sdlc_phase":  ["sdlc_phase", "sdlc", "phase"],
+    "audience":    ["audience", "target_audience"],
+    "owner":       ["owner", "team", "maintainer"],
+    "author":      ["author", "authors"],
+    "tags":        ["tags", "keywords", "labels"],
+    "title":       ["title"],
+}
+
+# ---------------------------------------------------------------------------
+# F4 — Scoring floor
+# Documents below this word count suppress the quality badge.
+# ---------------------------------------------------------------------------
+
+SCORE_MIN_WORDS: int = 150

@@ -1,0 +1,9 @@
+extends: spelling
+message: "'%s' is not in the dictionary — verify spelling or add to a vocabulary list."
+level: warning
+scope: paragraph
+dictionaries:
+  - en_US
+ignore:
+  - vocab/tech.txt
+  - vocab/aws.txt

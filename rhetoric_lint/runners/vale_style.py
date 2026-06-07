@@ -21,10 +21,21 @@ try:
 except ImportError:
     _textstat = None  # type: ignore[assignment]
 
+try:
+    from spylls.hunspell import Dictionary as _HunspellDict
+    _SPYLLS_AVAILABLE = True
+except ImportError:
+    _HunspellDict = None  # type: ignore[assignment,misc]
+    _SPYLLS_AVAILABLE = False
+
+# Cache loaded Hunspell dicts: (resolved_dicpath, dict_name) → Dictionary
+_spell_cache: dict = {}
+
 _ALL_TYPES = frozenset({
     "existence", "substitution",
     "occurrence", "metric", "capitalization", "repetition",
     "consistency", "conditional", "readability", "sequence",
+    "spelling",
 })
 
 _SEVERITY_MAP = {
@@ -144,7 +155,7 @@ class ValeStyleRunner(StyleRunner):
                 genre=rule_genre,
                 _patterns=[],
                 _exception_re=None,
-                _extra=raw_data,
+                _extra={**raw_data, "_rule_dir": str(yaml_file.parent)},
             )
             # Merge vocab into exceptions
             rule.exceptions = list(rule.exceptions) + vocab
@@ -410,6 +421,7 @@ def _apply_rule(rule: _Rule, context: Dict[str, Any]) -> List[Dict[str, Any]]:
         "conditional":   _apply_conditional,
         "readability":   _apply_readability,
         "sequence":      _apply_sequence,
+        "spelling":      _apply_spelling,
     }
     fn = dispatch.get(rule.extends)
     return fn(rule, context) if fn else []
@@ -733,3 +745,131 @@ def _match_sequence(tokens: list, descriptors: List[Dict[str, Any]]) -> bool:
         tok_idx += 1
 
     return desc_idx >= len(descriptors)
+
+
+# ---------------------------------------------------------------------------
+# SP_SPELL — extends: spelling
+# ---------------------------------------------------------------------------
+
+def _load_hunspell_dict(rule_dir: str, dicpath: str, dict_name: str):
+    """Load (and cache) a Hunspell dictionary.  Returns None on failure.
+
+    Tries in order:
+    1. spylls bundled dict (``Dictionary.DISTRIBUTED``): name like ``en_US``
+    2. ``from_files`` with path resolved relative to ``rule_dir / dicpath``
+    """
+    if not _SPYLLS_AVAILABLE:
+        return None
+    key = (rule_dir, dicpath, dict_name)
+    if key in _spell_cache:
+        return _spell_cache[key]
+    d = None
+    # Try bundled first (no file-system lookup needed)
+    if hasattr(_HunspellDict, "DISTRIBUTED") and dict_name in _HunspellDict.DISTRIBUTED:
+        try:
+            d = _HunspellDict.from_system(dict_name)
+        except Exception:
+            d = None
+    # Fall back to explicit path
+    if d is None:
+        if dicpath:
+            resolved = os.path.join(rule_dir, dicpath, dict_name)
+        else:
+            resolved = os.path.join(rule_dir, dict_name)
+        if os.path.isfile(resolved + ".aff"):
+            try:
+                d = _HunspellDict.from_files(resolved)
+            except Exception:
+                d = None
+    if d is not None:
+        _spell_cache[key] = d
+    return d
+
+
+def _apply_spelling(rule: _Rule, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """SP_SPELL: checks prose tokens against Hunspell dictionaries via spylls."""
+    path = context.get("path", "")
+    issues: List[Dict[str, Any]] = []
+
+    if not _SPYLLS_AVAILABLE:
+        # Emit one meta-finding per file instructing user to install the extra
+        issues.append({
+            "path": path,
+            "line": 1,
+            "column": 1,
+            "message": (
+                f"Spell check rule '{rule.name}' requires spylls — "
+                "install with: pip install 'rhetoric-lint[spell]'"
+            ),
+            "severity": "suggestion",
+            "check": rule.name,
+        })
+        return issues
+
+    extra = rule._extra
+    # Resolve rule file location from rule.name: "{StyleName}.{Stem}"
+    # We store the rule_dir in _extra["_rule_dir"] at load time (see load()).
+    rule_dir = extra.get("_rule_dir", "")
+    dicpath = extra.get("dicpath", "")
+    dict_names: List[str] = extra.get("dictionaries", [])
+    if not dict_names:
+        return []
+
+    # Load dictionaries
+    dicts = []
+    for name in dict_names:
+        d = _load_hunspell_dict(rule_dir, dicpath, name)
+        if d is not None:
+            dicts.append(d)
+    if not dicts:
+        return []
+
+    # Build ignore set: words listed in ignore files
+    ignore: set = set()
+    for ignore_path in (extra.get("ignore") or []):
+        resolved_ignore = os.path.join(rule_dir, ignore_path) if not os.path.isabs(ignore_path) else ignore_path
+        try:
+            with open(resolved_ignore, encoding="utf-8") as fh:
+                for line in fh:
+                    word = line.strip()
+                    if word and not word.startswith("#"):
+                        ignore.add(word.lower())
+        except Exception:
+            pass
+    # vocab exceptions merged at load time into rule.exceptions
+    for exc in rule.exceptions:
+        ignore.add(exc.lower())
+
+    # Build filter patterns (skip tokens matching these)
+    filter_res = [re.compile(p) for p in (extra.get("filters") or [])]
+
+    want_suggestions = (extra.get("action") or {}).get("name") == "suggest"
+
+    _WORD_RE = re.compile(r"[a-zA-Z''’\-]+")
+
+    for chunk, start_line in _extract_scope(rule.scope, context):
+        for line_offset, line_text in enumerate(chunk.split("\n")):
+            line_no = start_line + line_offset
+            for m in _WORD_RE.finditer(line_text):
+                word = m.group(0).strip("'-’")
+                if not word or len(word) < 2:
+                    continue
+                if word.lower() in ignore:
+                    continue
+                if any(f.search(word) for f in filter_res):
+                    continue
+                # Check all dicts — word is OK if any dict accepts it
+                if any(d.lookup(word) for d in dicts):
+                    continue
+                msg = rule.message.replace("%s", word) if "%s" in rule.message else rule.message
+                issue = _make_issue(rule, path, line_no, m.start() + 1, msg)
+                if want_suggestions:
+                    suggestions: List[str] = []
+                    for d in dicts:
+                        suggestions.extend(d.suggest(word))
+                        if len(suggestions) >= 3:
+                            break
+                    issue["suggestions"] = suggestions[:3]
+                issues.append(issue)
+
+    return issues

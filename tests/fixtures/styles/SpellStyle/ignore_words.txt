@@ -1,0 +1,3 @@
+# words to suppress from spell check
+xyzignored
+frobnicator

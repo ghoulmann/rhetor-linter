@@ -685,3 +685,185 @@ class TestSequence:
             ctx = _ctx("The dog runs fast.", nlp=nlp, sections=[sec])
             issues = r.check(ctx)
             assert any("test_seq" in i["check"] for i in issues)
+
+
+# ---------------------------------------------------------------------------
+# SP_SPELL — extends: spelling
+# ---------------------------------------------------------------------------
+
+# FIXTURES_DIR is the parent of SpellStyle/ — same as TestStyle loading convention
+SPELL_STYLE_DIR = FIXTURES_DIR  # load(style_dirs=[FIXTURES_DIR], enabled_styles=["SpellStyle"])
+
+try:
+    from spylls.hunspell import Dictionary as _HD
+    _SPYLLS_INSTALLED = True
+except ImportError:
+    _SPYLLS_INSTALLED = False
+
+
+def _spell_section(text: str, line: int = 1) -> dict:
+    """Section with paragraph nodes explicitly marked as prose."""
+    return {
+        "heading": "Section", "level": 2, "start": 0, "end": len(text),
+        "topic_type": "general",
+        "paragraphs": [
+            {
+                "text": text, "pos": 0, "line": line,
+                "nodes": [{"type": "Paragraph", "text": text}],
+                "sentences": [],
+            }
+        ],
+    }
+
+
+class TestSpelling:
+    def _runner_spelling(self, stem: str = "spelling_en_us") -> ValeStyleRunner:
+        r = ValeStyleRunner()
+        r.load(style_dirs=[SPELL_STYLE_DIR], enabled_styles=["SpellStyle"])
+        # Narrow to the requested rule stem
+        r._rules = [rule for rule in r._rules if rule.name.endswith(stem)]
+        return r
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_correct_word_no_fire(self):
+        r = self._runner_spelling()
+        sec = _spell_section("The quick brown fox jumps over the lazy dog.")
+        ctx = _ctx("The quick brown fox jumps over the lazy dog.", sections=[sec])
+        issues = r.check(ctx)
+        assert not any("spelling" in i["check"].lower() for i in issues)
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_misspelled_word_fires(self):
+        r = self._runner_spelling()
+        sec = _spell_section("This is a misspeled word.")
+        ctx = _ctx("This is a misspeled word.", sections=[sec])
+        issues = r.check(ctx)
+        assert any("misspeled" in i["message"] for i in issues)
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_misspelled_line_and_column(self):
+        r = self._runner_spelling()
+        text = "Run the instalation script."
+        sec = _spell_section(text, line=5)
+        ctx = _ctx(text, sections=[sec])
+        issues = r.check(ctx)
+        spelling_issues = [i for i in issues if "instalation" in i["message"]]
+        assert spelling_issues
+        assert spelling_issues[0]["line"] == 5
+        assert spelling_issues[0]["column"] >= 1
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_ignore_list_suppresses_word(self):
+        r = ValeStyleRunner()
+        r.load(style_dirs=[SPELL_STYLE_DIR], enabled_styles=["SpellStyle"])
+        r._rules = [rule for rule in r._rules if "spelling_with_ignore" in rule.name]
+        sec = _spell_section("Use xyzignored to do the thing.")
+        ctx = _ctx("Use xyzignored to do the thing.", sections=[sec])
+        issues = r.check(ctx)
+        assert not any("xyzignored" in i["message"] for i in issues)
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_vocab_exceptions_suppressed(self):
+        r = ValeStyleRunner()
+        r.load(style_dirs=[SPELL_STYLE_DIR], enabled_styles=["SpellStyle"])
+        r._rules = [rule for rule in r._rules if "spelling_en_us" in rule.name]
+        # Manually inject exception
+        for rule in r._rules:
+            rule.exceptions.append("frobnicator")
+        sec = _spell_section("The frobnicator handles the request.")
+        ctx = _ctx("The frobnicator handles the request.", sections=[sec])
+        issues = r.check(ctx)
+        assert not any("frobnicator" in i["message"] for i in issues)
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_filters_regex_suppresses_word(self):
+        r = ValeStyleRunner()
+        r.load(style_dirs=[SPELL_STYLE_DIR], enabled_styles=["SpellStyle"])
+        r._rules = [rule for rule in r._rules if "spelling_with_filters" in rule.name]
+        # The filter pattern matches capitalized words, so proper nouns are skipped
+        sec = _spell_section("Contact Xyzabc for support.")
+        ctx = _ctx("Contact Xyzabc for support.", sections=[sec])
+        issues = r.check(ctx)
+        assert not any("Xyzabc" in i["message"] for i in issues)
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_suggestions_populated(self):
+        r = ValeStyleRunner()
+        r.load(style_dirs=[SPELL_STYLE_DIR], enabled_styles=["SpellStyle"])
+        r._rules = [rule for rule in r._rules if "spelling_with_suggestions" in rule.name]
+        sec = _spell_section("This is a misspeled word.")
+        ctx = _ctx("This is a misspeled word.", sections=[sec])
+        issues = r.check(ctx)
+        spelling = [i for i in issues if "misspeled" in i["message"]]
+        assert spelling
+        assert "suggestions" in spelling[0]
+        assert len(spelling[0]["suggestions"]) <= 3
+        assert len(spelling[0]["suggestions"]) >= 1
+
+    @pytest.mark.skipif(not _SPYLLS_INSTALLED, reason="spylls not installed")
+    def test_en_gb_spelling_colour_accepted(self):
+        """en-GB: 'colour' is correct, 'color' is not."""
+        import tempfile, yaml as _yaml, os as _os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            import spylls, shutil
+            pkg_dir = _os.path.dirname(spylls.__file__)
+            # Check if en_GB is available; skip if not
+            en_gb_aff = _os.path.join(pkg_dir, "hunspell", "data", "en", "en_GB.aff")
+            if not _os.path.isfile(en_gb_aff):
+                pytest.skip("en_GB not bundled in this spylls version")
+            shutil.copy(en_gb_aff, _os.path.join(tmpdir, "en_GB.aff"))
+            shutil.copy(en_gb_aff.replace(".aff", ".dic"), _os.path.join(tmpdir, "en_GB.dic"))
+            rule_yml = {
+                "extends": "spelling",
+                "message": "'%s' not in dictionary.",
+                "level": "warning",
+                "scope": "paragraph",
+                "dictionaries": ["en_GB"],
+            }
+            style_path = _os.path.join(tmpdir, "GB")
+            _os.makedirs(style_path)
+            with open(_os.path.join(style_path, "spelling_gb.yml"), "w") as f:
+                _yaml.dump(rule_yml, f)
+            r = ValeStyleRunner()
+            r.load(style_dirs=[tmpdir], enabled_styles=["GB"])
+            sec = _spell_section("Use colour not color.")
+            ctx = _ctx("Use colour not color.", sections=[sec])
+            issues = r.check(ctx)
+            assert not any("colour" in i["message"] for i in issues)
+            assert any("color" in i["message"] for i in issues)
+
+    def test_spylls_absent_meta_finding(self, monkeypatch):
+        """When spylls is not installed, emit a single meta-finding, no crash."""
+        import rhetoric_lint.runners.vale_style as _vs
+        monkeypatch.setattr(_vs, "_SPYLLS_AVAILABLE", False)
+        r = ValeStyleRunner()
+        r.load(style_dirs=[SPELL_STYLE_DIR], enabled_styles=["SpellStyle"])
+        r._rules = [rule for rule in r._rules if "spelling_en_us" in rule.name]
+        sec = _spell_section("Hello world.")
+        ctx = _ctx("Hello world.", sections=[sec])
+        issues = r.check(ctx)
+        assert any("spylls" in i["message"].lower() for i in issues)
+        assert all(i["severity"] == "suggestion" for i in issues if "spylls" in i["message"].lower())
+
+    def test_missing_dict_file_no_crash(self):
+        """When dict files are missing, rule is silently skipped."""
+        import tempfile, yaml as _yaml, os as _os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            style_path = _os.path.join(tmpdir, "BadSpell")
+            _os.makedirs(style_path)
+            rule_yml = {
+                "extends": "spelling",
+                "message": "'%s' not found.",
+                "level": "warning",
+                "scope": "paragraph",
+                "dictionaries": ["nonexistent_dict"],
+            }
+            with open(_os.path.join(style_path, "bad.yml"), "w") as f:
+                _yaml.dump(rule_yml, f)
+            r = ValeStyleRunner()
+            r.load(style_dirs=[tmpdir], enabled_styles=["BadSpell"])
+            sec = _spell_section("Hello world.")
+            ctx = _ctx("Hello world.", sections=[sec])
+            issues = r.check(ctx)
+            # Must not crash; may produce zero issues or meta-finding but no exception
+            assert isinstance(issues, list)
