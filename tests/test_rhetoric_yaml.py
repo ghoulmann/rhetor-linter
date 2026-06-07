@@ -147,6 +147,18 @@ class TestTerminologyYAML:
         term = [i for i in issues if "Terminology" in i["check"]]
         assert not term
 
+    def test_fireman_regex_swap(self):
+        issues = self.runner.check(_ctx("The fireman saved the day."))
+        term = [i for i in issues if "Terminology" in i["check"]]
+        assert term
+        assert any("firefighter" in i["message"] for i in term)
+
+    def test_chairwoman_regex_swap(self):
+        issues = self.runner.check(_ctx("The chairwoman opened the meeting."))
+        term = [i for i in issues if "Terminology" in i["check"]]
+        assert term
+        assert any("chair" in i["message"] for i in term)
+
 
 # ---------------------------------------------------------------------------
 # SP7 — Inclusivity

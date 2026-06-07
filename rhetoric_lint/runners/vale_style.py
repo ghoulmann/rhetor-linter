@@ -203,9 +203,15 @@ def _compile_rule(rule: _Rule) -> None:
                     pass
 
     elif rule.extends == "substitution":
+        def _wrap_sub(token: str) -> str:
+            # Swap keys are raw regex patterns in Vale; add word boundaries but don't escape.
+            if rule.nonword:
+                return token
+            return r"\b(?:" + token + r")\b"
+
         for original, replacement in rule.swap.items():
             try:
-                patterns.append((re.compile(_wrap(original), flags), replacement))
+                patterns.append((re.compile(_wrap_sub(original), flags), replacement))
             except re.error:
                 pass
 

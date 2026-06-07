@@ -7,14 +7,10 @@ nonword: false
 tokens:
   - lame
   - dumb
+  - insane
   - 'he/she'
   - 's/he'
-  - manpower
-  - mankind
   - man-hours
-  - chairman
-  - fireman
-  - policeman
 exceptions:
   - lame duck
   - lame excuse
