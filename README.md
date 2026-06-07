@@ -89,15 +89,25 @@ rhetoric-lint --style-dir style-sets/ --style Rhetoric docs/
 rhetoric-lint --style-dir style-sets/ --style Rhetoric,write-good docs/
 ```
 
-The `Rhetoric` style set ships in `style-sets/Rhetoric/`:
+Two style sets ship in `style-sets/`:
+
+**`Rhetoric`** — rhetorical quality checks for technical prose:
 
 | Style rule | Type | Description |
 |-----------|------|-------------|
-| `Rhetoric.TrivializingLanguage` | existence | Flags `simply`, `easily`, `obviously`, `of course`, `straightforward` |
-| `Rhetoric.TrivializingLanguage-just` | existence | Flags `just` with temporal-use exceptions |
-| `Rhetoric.Terminology` | substitution | Suggests inclusive terminology replacements (`whitelist` → `allowlist`, etc.) |
-| `Rhetoric.Inclusivity` | substitution | Flags language with more inclusive alternatives |
-| `Rhetoric.InclusivityFlag` | existence | Flags terms without clean drop-in replacements |
+| `Rhetoric.TrivializingLanguage` | existence | Flags `simply`, `easily`, `obviously`, `of course`, `straightforward`, `basically`, `merely`, `trivially`, `naturally` |
+| `Rhetoric.TrivializingLanguage-just` | existence | Flags `just` with temporal-use exceptions (`just released`, `have just`, etc.) |
+| `Rhetoric.Terminology` | substitution | Inclusive terminology: `whitelist`→`allowlist`, `blacklist`→`denylist`, `master`→`main`, gendered role terms (`fireman`→`firefighter`, `chairman`→`chair`, etc.), `manpower`→`workforce` |
+| `Rhetoric.Inclusivity` | existence | Flags terms with more inclusive alternatives (`guys`, `crazy`, etc.) |
+| `Rhetoric.InclusivityFlag` | existence | Flags terms without clean drop-in replacements (`lame`, `dumb`, `insane`, `man-hours`) |
+
+**`Clarity`** — readability structure checks:
+
+| Style rule | Type | Description |
+|-----------|------|-------------|
+| `Clarity.FleschReadingEase` | readability | Flags paragraphs below the configured Flesch Reading Ease threshold |
+| `Clarity.Nominalizations` | occurrence | Flags excessive nominalizations per sentence |
+| `Clarity.PrepositionalDensity` | occurrence | Flags excessive prepositional phrases per sentence |
 
 Genre gating: add a `genre:` field to any rule YAML to restrict it to matching document genres. Add `meta.yml` with `genre:` to gate an entire style set.
 

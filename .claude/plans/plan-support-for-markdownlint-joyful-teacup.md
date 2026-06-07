@@ -62,7 +62,7 @@ Independent (any time):
 | SP6 | Migrate TrivializingLanguage to Vale YAML | SP2 |
 | SP7 | Rhetoric YAML additions (Terminology, Inclusivity) | SP2 |
 | SP8 | NLP rule expansion (5 spaCy rules + TabVariantBalance) | SP1 |
-| SP9 | ProsePartner gaps (4 rules) | SP8, SP4 |
+| SP9 | ProsePartner gaps (3 Python rules + ReadabilityGrade.yml) | SP8, SP4 |
 | SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 |
 | SP_CI | Pre-commit + GitHub Actions integration | SP1 |
 | SP_CONTRAST | Rhetoric.UnresolvedContrast | — |
@@ -95,8 +95,9 @@ Tier 2 — Extensions (parallel after Tier 1)
 
 Tier 3 — Depends on Tier 2
   SP9: ProsePartner gaps — PassiveVoiceActorGap, SentenceRhythm,
-       ReadabilityGrade, UnsupportedClaim (needs SP4 + SP8)
-  SP7: Rhetoric YAML additions — Terminology.yml, Inclusivity.yml
+       UnsupportedClaim (Python/spaCy, needs SP4 + SP8) +
+       ReadabilityGrade.yml (Vale YAML, extends: readability, metric: Lexi)
+  SP7: Rhetoric YAML additions — Terminology.yml, Inclusivity.yml  ✅ done
 
 TODO
   TabVariantBalance: rule is structural (AST OL-item counting), not NLP — no spaCy dep.
@@ -114,6 +115,59 @@ TODO
       adr, concept, doc_templates, explanation, faq, headings, howto,
       metric_density, nominalizations, postmortem, preferred_form, reference,
       syntactic_depth, tone, troubleshooting, tutorial.
+
+  Enterprise platform design — adversarial review findings (2026-06-07)
+  Must resolve before any server/scoring implementation begins:
+
+  [FATAL F1] Section annotation syntax incompatible with HTML comment stripper.
+    `_HTML_COMMENT_RE` (re.DOTALL) at engine.py:846 blanks `<!--\n---\nyaml\n---\n-->`
+    before classify_section_topic() runs at line 903. Fix: dedicated annotation-parse
+    pass before _blank_html_comments(); cache annotations keyed by line number.
+
+  [FATAL F2] Frontmatter YAML is discarded — metadata model has no implementation path.
+    engine.py:829-833 replaces frontmatter with blank lines, throws away content.
+    context has no frontmatter, topic_type, owner, sdlc_phase, audience, tags, author.
+    Fix: parse with PyYAML before blanking; store parsed dict in context["frontmatter"].
+    Prerequisite for: topic_type priority stack, all metadata facets, owner→Backstage mapping.
+
+  [FATAL F3] SP12 emits N×M spam (jobs × files) when coverage is missing.
+    jtbd-tool marks job coverage=="missing" corpus-wide → SP12 re-runs Jaccard per-file
+    and fires on every file by definition. 5 jobs × 50 files = 250 identical findings.
+    Fix: emit one corpus-level finding per missing job via CrossFileContext (SP1 done),
+    not one per file. Alternatively: require manifest to include primary_doc_path hint.
+
+  [MAJOR F4] Density rate model needs minimum word floor.
+    50-word stub with 3 findings = 60/1kw; 5000-word doc with 3 findings = 0.6/1kw.
+    Fix: suppress badge / mark "insufficient sample" below 150 words (suggested threshold).
+
+  [MAJOR F5] Dimension→rule prefix mapping is unspecified.
+    5 curated dimensions (Clarity, Structure, Completeness, Style, Readability) not in
+    const.py. Attention.SyntacticDepth, Navigation.FindabilityMap, Resilience.*,
+    Curriculum.* have no stated dimension assignment. Must be decided and committed to
+    const.py as DIMENSION_MAP before scoring is implemented.
+
+  [MAJOR F6] SP12 tokenizer parity has no contract test.
+    Plan says "reimplement _tokenize identically." Any drift in jtbd-tool stopwords
+    silently diverges Jaccard scores. Fix: shared contract fixture — fixed text + job
+    statement → expected Jaccard score — run against both tools in CI.
+
+  [MAJOR F7] jtbd-reporter integration scope undefined.
+    ~/Documents/github/jtbd-reporter is the LLM-powered companion (prose gap summaries,
+    coverage assessments). No decision on whether rhetor-server integrates it, ignores it,
+    or treats it as a separate surface. Resolve before server API design is final.
+
+  [MINOR F8] Polling staleness unquantified. For active TechDocs monorepos, daily poll
+    = up to 23-hour stale scores in Backstage plugin. State limitation explicitly in
+    server docs; note webhook-based refresh as planned v2 feature.
+
+  [MINOR F9] Owner field normalization vs Backstage entity references.
+    frontmatter `owner: platform-team` won't match Backstage `group:platform-team`.
+    Normalization contract (prefix inference, fallback) must be defined alongside F2 fix.
+
+  [MINOR F10] Server sub-package import constraint unstated.
+    Rule modules must never import server-layer packages (FastAPI, SQLAlchemy) at module
+    level or [server] extra becomes a hard transitive dep for all users. Add to
+    CONTRIBUTING.md when server sub-package is created.
 
 Backlog — Blocked on CrossFileContext (from SP1)
   SP10: DependencyReveal
@@ -775,7 +829,9 @@ python -m pytest tests/ -v
 
 ## SP9 — ProsePartner Gaps
 
-**Goal:** Four new Python rules closing gaps identified in ProsePartner comparison analysis. All depend on SP8's infrastructure patterns. Independent of SP2–SP7.
+**Goal:** Three new Python rules + one Vale YAML rule closing gaps identified in ProsePartner comparison analysis. All depend on SP8's infrastructure patterns. Independent of SP2–SP7.
+
+**ReadabilityGrade is implemented as Vale YAML** (`style-sets/Rhetoric/ReadabilityGrade.yml`, `extends: readability`, `metric: Lexi`) rather than a Python rule. The Lexi composite score is already implemented in `_readability.py` and the `readability` rule type is already supported by SP4. The YAML approach is preferable: threshold is user-configurable, genre gating is via the YAML `genre:` field, and no Python module is needed.
 
 ### 1. `rules/passive_voice.py` → `Rhetoric.PassiveVoiceActorGap`
 
@@ -923,8 +979,8 @@ as a result, consequently, it follows that
 **Create:**
 - `rhetoric_lint/rules/passive_voice.py`
 - `rhetoric_lint/rules/sentence_rhythm.py`
-- `rhetoric_lint/rules/readability.py` — imports `rhetoric_lint.runners._readability.composite_score` and `preprocess_for_readability`
 - `rhetoric_lint/rules/unsupported_claim.py`
+- `style-sets/Rhetoric/ReadabilityGrade.yml` — `extends: readability`, `metric: Lexi`, `max: 65`, `level: warning`, `scope: paragraph`
 - `tests/test_prose_partner_gaps.py`
 
 **Modify:**

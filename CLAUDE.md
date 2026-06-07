@@ -92,6 +92,27 @@ Rules with **no dedicated test file yet** (good contribution targets): `Heading.
 3. Load at runtime: `rhetoric-lint --style-dir style-sets/ --style <StyleName> docs/`.
 4. Check name is `"{StyleName}.{yaml_stem}"`.
 5. Genre-gate: add `genre: howto, tutorial` to the rule YAML, or `meta.yml` with `genre:` for the whole style.
+6. Swap keys in `substitution` rules are treated as **raw regex patterns** (not escaped) — use `fire(?:m[ae]n|wom[ae]n)` syntax as in Vale. Word boundaries are added automatically unless `nonword: true`.
+
+### `extends: readability` and the Lexi metric
+
+The built-in metric name `Lexi` invokes the composite readability score from `rhetoric_lint/runners/_readability.py`. Formula, weights, and normalization match [Rebilly/lexi](https://github.com/Rebilly/lexi) exactly:
+- Five textstat metrics weighted: Flesch Reading Ease (16.5%), Gunning Fog (22.3%), ARI (23.3%), Dale-Chall (19.6%), Coleman-Liau (18.3%)
+- "Lower is better" metrics use inverted range convention (`min` = worst, `max` = best end)
+- Score is 0–100 (100 = most readable)
+
+```yaml
+# style-sets/Rhetoric/ReadabilityGrade.yml
+extends: readability
+metric: Lexi
+max: 65        # flag paragraphs scoring below 65
+level: warning
+scope: paragraph
+```
+
+### style-sets/ layout
+
+`style-sets/` is the canonical directory for all Vale-compatible style sets. Only project-owned sets are tracked in git; user/third-party sets installed alongside them are gitignored via `style-sets/*` + `!style-sets/<Name>` negation rules in `.gitignore`. Currently tracked: `Rhetoric/`, `Clarity/`.
 
 ## Active development
 
@@ -109,7 +130,7 @@ Status as of 2026-06-07:
 | SP6 | ✅ done | TrivializingLanguage migrated to Vale YAML (`style-sets/Rhetoric/`) |
 | SP7 | ✅ done | Rhetoric YAML additions: Terminology, Inclusivity, InclusivityFlag |
 | SP8 | ✅ done | 6 NLP rules: SyntacticDepth, Nominalization, MetricDensity, ToneImbalance, PreferredForm, TabVariantBalance |
-| SP9 | next | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, ReadabilityGrade, UnsupportedClaim (needs SP4 + SP8) |
+| SP9 | next | ProsePartner gaps: PassiveVoiceActorGap, SentenceRhythm, UnsupportedClaim (Python/spaCy) + ReadabilityGrade.yml (Vale YAML, `extends: readability`, `metric: Lexi`) |
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.

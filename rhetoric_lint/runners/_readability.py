@@ -1,6 +1,7 @@
 """Shared readability preprocessing and scoring — used by ValeStyleRunner and rules/readability.py."""
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Dict, List, Optional
 
@@ -110,6 +111,8 @@ def composite_score(text: str) -> Optional[float]:
         if not fn:
             continue
         raw = fn(text)
+        if not isinstance(raw, (int, float)) or math.isnan(raw):
+            raw = 0.0  # matches Rebilly/lexi NaN handling; clamps to best-end after normalization
         rng = _METRIC_RANGES[key]
         lo, hi = rng["min"], rng["max"]
         if lo < hi:
