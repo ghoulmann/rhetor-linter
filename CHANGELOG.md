@@ -35,6 +35,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `style-sets/` is now the canonical location for all Vale-compatible style sets; `styles/` removed
 - Substitution swap keys treated as raw regex patterns (not escaped), enabling Vale-style patterns like `fire(?:m[ae]n|wom[ae]n)`
 
+### Changed
+- Genre set updated to Diataxis-aligned 10-genre taxonomy: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `adr`, `postmortem`, `changelog`, `readme`, `general`; removed `technical`, `scientific`, `curriculum` as classifier-inferred outputs
+- `classify_genre()` now accepts `path` parameter; filename-based detection takes highest priority (README→`readme`, CHANGELOG/HISTORY→`changelog`, CONTRIBUTING/SECURITY→`howto`)
+- Genre accuracy thresholds now only enforced when `GENRE_GATE_ENABLED=True`; test always runs and reports diagnostics
+- Corpus labels updated from `technical` to Diataxis genres across 45 documents
+
 ### Fixed
 - Lexi NaN guard: `coleman_liau_index` NaN now clamps to 0.0 matching Rebilly/lexi reference behaviour
 - Exception matching in existence/substitution rules now searches full line text (not just matched token), fixing multi-word exceptions like `lame duck`

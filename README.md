@@ -30,7 +30,7 @@ rhetoric-lint docs/
 rhetoric-lint --format text --min-severity warning docs/api.md
 rhetoric-lint --rules Cohesion.Break,Heading.Generic docs/
 rhetoric-lint --ignore-rules Rhetoric.ThroatClearing docs/
-rhetoric-lint --genre curriculum docs/syllabus.md
+rhetoric-lint --genre howto docs/syllabus.md
 rhetoric-lint --config .rhetoric-lint.yaml docs/
 rhetoric-lint --style-dir style-sets/ --style Rhetoric docs/
 rhetoric-lint --style-dir style-sets/ --style Rhetoric,Spelling docs/
@@ -54,7 +54,7 @@ rhetoric-lint rules --format json
 | `--ignore-rules` | — | Comma-separated denylist of rules to suppress |
 | `--ignore` | — | Comma-separated glob patterns to exclude files |
 | `--config`, `-c` | — | YAML or JSON config file; keys matching `const.py` override defaults |
-| `--genre` | — | Override genre detection: `technical`, `scientific`, `academic`, `curriculum`, `legal`, `adr`, `postmortem`, `general` |
+| `--genre` | — | Override genre detection: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `adr`, `postmortem`, `changelog`, `readme`, `general` |
 | `--style-dir` | — | Parent directory of Vale-compatible style sets (repeatable) |
 | `--style` | — | Comma-separated style names to enable (empty = all in `--style-dir`) |
 | `--no-vale` | false | Disable Vale-compatible style runners |
@@ -69,7 +69,7 @@ Both `--rules` and `--ignore-rules` support prefix matching: `--rules Cohesion` 
 
 ```json
 {
-  "Genre": { "file.md": "technical" },
+  "Genre": { "file.md": "howto" },
   "Matches": [
     { "Path": "...", "Line": 1, "Check": "...", "Message": "...", "Severity": "warning" }
   ]
