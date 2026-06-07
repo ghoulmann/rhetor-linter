@@ -359,6 +359,7 @@ RULE_DESCRIPTIONS = {
     "Completeness.ConceptOverload":     "Too many paragraphs of explanation appear before the first actionable step or structural element.",
     "Completeness.StructureLead":       "Section opens directly with a list or code block without a lead sentence explaining its purpose.",
     "Engine.OversizedDocument":         "Document exceeds NLP_MAX_CHARS; full-document NLP analysis was truncated. Section-level checks run on the complete file.",
+    "Rhetoric.UnresolvedContrast":      "A contrast signal (however, but, although, etc.) appears without a following resolution — the reader cannot determine the takeaway.",
 }
 
 # ---------------------------------------------------------------------------
@@ -452,4 +453,51 @@ RULE_SEVERITY_LEVELS = {
     "Completeness.ConceptOverload": "suggestion",
     "Completeness.StructureLead": "suggestion",
     "Engine.OversizedDocument": "suggestion",
+    "Rhetoric.UnresolvedContrast": "suggestion",
 }
+
+# ---------------------------------------------------------------------------
+# Rhetoric.UnresolvedContrast (SP_CONTRAST)
+# ---------------------------------------------------------------------------
+
+CONTRAST_SIGNALS = [
+    "however", "but", "although", "nevertheless", "on the other hand",
+    "on the contrary", "in contrast", "by contrast", "even so", "yet",
+    "despite", "nonetheless", "that said", "while", "whereas",
+    "notwithstanding",
+]
+
+CONTRAST_RESOLUTION_SIGNALS = [
+    "therefore", "thus", "so", "as a result", "consequently", "this means",
+    "which means", "instead", "rather", "still", "ultimately", "in practice",
+    "in fact", "the key point", "the solution", "to address this",
+]
+
+CONTRAST_UNRESOLVED_MAX_PER_PARA = 2
+CONTRAST_MIN_SENTENCES = 3
+
+# Body-NLP tiebreaker: imperative-sentence ratio threshold for howto detection
+SECTION_IMPERATIVE_RATIO_HOWTO = 0.40
+
+# ---------------------------------------------------------------------------
+# Runner / style infrastructure (SP1)
+# ---------------------------------------------------------------------------
+
+# Directories to search for Vale-compatible style sets.
+# Populated at runtime by --style-dir CLI flags or config key.
+STYLE_DIRS: list = []
+
+# Style names to enable (empty list = all styles in STYLE_DIRS).
+# Populated at runtime by --style CLI flag or config key.
+ENABLED_STYLES: list = []
+
+# markdownlint integration toggle.  Set to False with --no-markdownlint.
+MARKDOWNLINT_ENABLED: bool = True
+
+# Path to a .markdownlint.json / .markdownlint.yaml config file.
+# Empty string = auto-discover from the linted file's directory toward root.
+MARKDOWNLINT_CONFIG: str = ""
+
+# Path to an optional custom terminology JSON file (list of preferred terms).
+# Empty string = disabled.
+TERMINOLOGY_FILE: str = ""

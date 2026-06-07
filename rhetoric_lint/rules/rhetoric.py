@@ -109,6 +109,12 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
     # -------------------------------------------------------------------------
     _modal_ambiguity_check(issues, sections, path, text, const)
 
+    # -------------------------------------------------------------------------
+    # Rhetoric.UnresolvedContrast — section/node-aware pass
+    # -------------------------------------------------------------------------
+    genre = context.get("genre", "general")
+    _unresolved_contrast_check(issues, sections, path, text, const, genre)
+
     return issues
 
 
@@ -286,3 +292,110 @@ def _modal_ambiguity_check(
                 "severity": severity,
                 "check": "Rhetoric.ModalAmbiguity",
             })
+
+
+# ---------------------------------------------------------------------------
+# Rhetoric.UnresolvedContrast
+# ---------------------------------------------------------------------------
+
+# Topic types where an unresolved contrast is a defect — orientation/discussion sections.
+# "general" is excluded: unclassified sections are declarative procedural prose that
+# legitimately uses conditional contrast ("if X, otherwise Y") without a resolution frame.
+# Howto/tutorial/reference/faq are also excluded — contrast is valid in those contexts.
+_CONTRAST_GATE_TOPIC_TYPES = frozenset({
+    "concept", "explanation",
+})
+
+_CONTRAST_WORD_RE_CACHE: dict = {}
+
+
+def _build_contrast_pattern(signals: list) -> "re.Pattern":
+    key = tuple(signals)
+    if key not in _CONTRAST_WORD_RE_CACHE:
+        alts = "|".join(re.escape(s) for s in sorted(signals, key=len, reverse=True))
+        _CONTRAST_WORD_RE_CACHE[key] = re.compile(
+            r"(?<![a-zA-Z])(" + alts + r")(?![a-zA-Z])", re.I
+        )
+    return _CONTRAST_WORD_RE_CACHE[key]
+
+
+def _unresolved_contrast_check(
+    issues: List[Dict[str, Any]],
+    sections: List[Dict[str, Any]],
+    path: str,
+    text: str,
+    const: Any,
+    genre: str,
+) -> None:
+    """Rhetoric.UnresolvedContrast: contrast signal without a following resolution."""
+
+    contrast_signals = getattr(const, "CONTRAST_SIGNALS", [])
+    resolution_signals = getattr(const, "CONTRAST_RESOLUTION_SIGNALS", [])
+    min_sentences = getattr(const, "CONTRAST_MIN_SENTENCES", 3)
+    max_per_para = getattr(const, "CONTRAST_UNRESOLVED_MAX_PER_PARA", 2)
+
+    if not contrast_signals:
+        return
+
+    contrast_re = _build_contrast_pattern(contrast_signals)
+    resolution_lower = [s.lower() for s in resolution_signals]
+
+    def _has_contrast(sentence_text: str) -> bool:
+        t = sentence_text.lower().strip()
+        m = contrast_re.search(t)
+        if not m:
+            return False
+        # Signal must appear at position < 30% of sentence length (word-boundary safe)
+        return m.start() / max(1, len(t)) < 0.30
+
+    def _has_resolution(sentence_text: str) -> bool:
+        t = sentence_text.lower()
+        return any(sig in t for sig in resolution_lower)
+
+    for sec in sections:
+        if sec.get("topic_type", "general") not in _CONTRAST_GATE_TOPIC_TYPES:
+            continue
+        for para in sec.get("paragraphs", []):
+            # Skip non-prose nodes (code, images, list items, blockquotes)
+            nodes = para.get("nodes", [])
+            if nodes and any(n.get("type") in _SKIP_NODE_TYPES for n in nodes):
+                continue
+
+            sentences = para.get("sentences", [])
+            if len(sentences) < min_sentences:
+                continue
+
+            findings_this_para = 0
+            for i, sent in enumerate(sentences):
+                if findings_this_para >= max_per_para:
+                    break
+                sent_text = sent.get("span", None)
+                if sent_text is not None:
+                    sent_str = sent_text.text
+                else:
+                    sent_str = ""
+                if not _has_contrast(sent_str):
+                    continue
+                # Check rest of contrast sentence + next sentence for resolution
+                resolved = _has_resolution(sent_str)
+                if not resolved and i + 1 < len(sentences):
+                    next_sent = sentences[i + 1]
+                    next_text = next_sent.get("span", None)
+                    if next_text is not None:
+                        resolved = _has_resolution(next_text.text)
+                if not resolved:
+                    issues.append({
+                        "path": path,
+                        "line": sent.get("line", _line_from_pos(text, para.get("pos", 0))),
+                        "column": 1,
+                        "message": (
+                            "Contrast signal (however/but/although/…) without a "
+                            "following resolution — add 'therefore', 'instead', "
+                            "'the solution is', or similar to clarify the takeaway."
+                        ),
+                        "severity": getattr(const, "RULE_SEVERITY_LEVELS", {}).get(
+                            "Rhetoric.UnresolvedContrast", "suggestion"
+                        ),
+                        "check": "Rhetoric.UnresolvedContrast",
+                    })
+                    findings_this_para += 1

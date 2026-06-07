@@ -1203,3 +1203,109 @@ Detect nested ordered lists (ordered list item whose `nodes` contain a child ord
 - Interface Surface Coverage (CLI flags in code blocks → prose explanation)
 - Procedural State Machine (nested ordered list sub-procedure validation)
 - Retrieval Anchor Density
+
+---
+
+## SP12: JTBD Coverage Integration
+
+**Status**: Planned — blocked on jtbd-tool Tier 3 (stable API at `localhost:8080`)  
+**Depends on**: SP1 (`CrossFileContext`); jtbd-tool producing a `jtbd-manifest.json`
+
+### New rule: `Coverage.MissingJobCoverage`
+
+File: `rhetoric_lint/rules/jtbd_coverage.py`
+
+Rule fires a `warning` finding for each job in the manifest where `coverage == "missing"` (i.e., no doc paragraph meets the Jaccard threshold). This connects jtbd-tool's scan output to rhetor-linter's per-file audit loop.
+
+#### Engine integration
+
+- New `const.py` additions:
+  ```python
+  JTBD_MANIFEST_PATH: str = ""          # path to jtbd-manifest.json; empty = rule disabled
+  JTBD_COVERAGE_JACCARD_MIN: float = 0.30
+  ```
+- New CLI flag: `--jtbd-manifest <path>` → sets `const.JTBD_MANIFEST_PATH`
+- Engine `main.py`: if `JTBD_MANIFEST_PATH` is set, load manifest JSON into `context["jtbd_manifest"]`
+
+#### Rule logic
+
+```python
+def check(context: dict) -> list[dict]:
+    manifest_path = context["const"].JTBD_MANIFEST_PATH
+    if not manifest_path:
+        return []
+    manifest = context.get("jtbd_manifest")
+    if not manifest:
+        return []
+
+    findings = []
+    for job in manifest.get("jobs", []):
+        if job.get("coverage") != "missing":
+            continue
+
+        # Compute Jaccard against all paragraphs in this file
+        job_tokens = _tokenize(job["statement_text"])
+        best = 0.0
+        for section in context["sections"]:
+            for para in section.get("paragraphs", []):
+                score = set_overlap_metrics(job_tokens, _tokenize(para["text"]))["jaccard"]
+                best = max(best, score)
+
+        threshold = context["const"].JTBD_COVERAGE_JACCARD_MIN
+        if best < threshold:
+            findings.append({
+                "path":    context["path"],
+                "line":    1,
+                "column":  0,
+                "check":   "Coverage.MissingJobCoverage",
+                "severity": "warning",
+                "message": (
+                    f"Job '{job['statement_text']}' ({job['job_map_step']}) "
+                    f"has no documentation coverage (best Jaccard: {best:.3f} < {threshold}). "
+                    f"SWEBOK ref: {job['swebok_ref']}"
+                ),
+            })
+    return findings
+```
+
+`_tokenize` mirrors `auditor.py` in jtbd-tool: lowercase, `\b[a-z]{2,}\b`, minus stopwords. Do **not** copy — import from a shared util module or reimplement identically (the two tools must not import each other).
+
+Use `overlap.py::set_overlap_metrics()` for the Jaccard call — never reimplement Jaccard in rule files (hard constraint from CONTRIBUTING.md).
+
+#### `const.py` severity/description entries
+
+```python
+RULE_SEVERITY_LEVELS["Coverage.MissingJobCoverage"] = "warning"
+RULE_DESCRIPTIONS["Coverage.MissingJobCoverage"] = (
+    "A JTBD job detected by jtbd-tool has no documentation coverage in this file."
+)
+```
+
+#### Tests: `tests/test_jtbd_coverage.py`
+
+- **Must-fire**: synthetic manifest with one `coverage=missing` job; doc fixture with no matching text → assert finding emitted.
+- **Must-not-fire (coverage present)**: same manifest; doc fixture whose paragraph contains matching tokens (Jaccard ≥ 0.30) → assert no finding.
+- **Must-not-fire (no manifest)**: `JTBD_MANIFEST_PATH = ""` → assert no finding.
+- **Must-not-fire (corpus)**: full engine against `tests/fixtures/corpus/technical/` with real manifest produced by `jtbd-tool scan .` → zero findings (real docs are presumed to cover their own jobs).
+
+#### Manifest loading
+
+Load once per engine run, not per file. In `engine.py`:
+
+```python
+if const.JTBD_MANIFEST_PATH:
+    import json
+    with open(const.JTBD_MANIFEST_PATH) as f:
+        context["jtbd_manifest"] = json.load(f)
+```
+
+#### Exchange format contract (jtbd-tool ↔ rhetor-linter)
+
+The only manifest fields rhetor-linter reads:
+- `jobs[].id`
+- `jobs[].statement_text`
+- `jobs[].job_map_step`
+- `jobs[].swebok_ref`
+- `jobs[].coverage`  (`"missing"` | `"partial"` | `"covered"` | `"unknown"`)
+
+Schema version is in `manifest.version`. If the file is missing or invalid JSON, the rule returns `[]` silently — never raises.

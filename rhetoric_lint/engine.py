@@ -8,6 +8,7 @@ import rhetoric_lint.const as const
 from rhetoric_lint.genre import classify_genre
 from rhetoric_lint.topic_type import classify_section_topic
 from rhetoric_lint.template_type import classify_doc_template
+from rhetoric_lint.runners.base import StyleRunner
 
 # Pre-processing: link reference definition lines (e.g. "[img1]: data:image/png;base64,...")
 # These are blanked out (content replaced, newline kept) before parsing so they don't
@@ -412,6 +413,35 @@ def get_synsets(text: str) -> set:
     return synset_ids
 
 
+class CrossFileContext:
+    """Accumulates cross-file signals for rules that need document-set awareness.
+
+    term_first_seen:    term → (file_path, section_heading) of first occurrence
+    concept_definitions: term → list of paragraph texts where it is defined
+    """
+
+    def __init__(self) -> None:
+        self.term_first_seen: Dict[str, tuple] = {}
+        self.concept_definitions: Dict[str, List[str]] = {}
+
+    def scan(self, paths: List[str], nlp) -> None:
+        """First-pass scan: populate term_first_seen across all files."""
+        for path in paths:
+            try:
+                text = open(path, encoding="utf-8").read()
+            except OSError:
+                continue
+            try:
+                doc = nlp(text[:50_000])
+            except Exception:
+                continue
+            for token in doc:
+                if token.is_alpha and not token.is_stop and len(token.text) >= 4:
+                    key = token.lemma_.lower()
+                    if key not in self.term_first_seen:
+                        self.term_first_seen[key] = (path, "")
+
+
 class RhetoricEngine:
     def __init__(self):
         self.nlp = self._init_spacy()
@@ -419,6 +449,8 @@ class RhetoricEngine:
         self.parse_with_mistletoe = True
         # genre detected per file during the last lint_files() call
         self.last_genres: Dict[str, str] = {}
+        # external style runners (Vale YAML, markdownlint, etc.)
+        self._runners: List[StyleRunner] = []
         # load rule modules — attach GENRES frozenset to each check function
         self.rules = []
         for name in (
@@ -451,6 +483,32 @@ class RhetoricEngine:
                 check_fn = mod.check
                 check_fn.genres = getattr(mod, "GENRES", frozenset({"all"}))
                 self.rules.append(check_fn)
+
+    def _init_runners(self) -> None:
+        """Instantiate and load external style runners based on const settings."""
+        self._runners = []
+        style_dirs = getattr(const, "STYLE_DIRS", [])
+        enabled_styles = getattr(const, "ENABLED_STYLES", [])
+        markdownlint_enabled = getattr(const, "MARKDOWNLINT_ENABLED", True)
+        markdownlint_config = getattr(const, "MARKDOWNLINT_CONFIG", "")
+
+        if style_dirs:
+            try:
+                from rhetoric_lint.runners.vale_style import ValeStyleRunner
+                runner = ValeStyleRunner()
+                runner.load(style_dirs=style_dirs, enabled_styles=enabled_styles)
+                self._runners.append(runner)
+            except ImportError:
+                pass
+
+        if markdownlint_enabled:
+            try:
+                from rhetoric_lint.runners.markdownlint import MarkdownlintRunner
+                runner = MarkdownlintRunner()
+                runner.load(config_path=markdownlint_config)
+                self._runners.append(runner)
+            except ImportError:
+                pass
 
     def _parse_with_mistletoe(self, text: str):
         """Optional parser using `mistletoe` to build a section-aware structure.
@@ -748,6 +806,10 @@ class RhetoricEngine:
         paths: List[str],
         genre_override: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        # First pass: build cross-file context for rules that need document-set awareness
+        cross_file = CrossFileContext()
+        cross_file.scan(paths, self.nlp)
+
         issues = []
         for path in paths:
             try:
@@ -852,6 +914,7 @@ class RhetoricEngine:
                 "const": const,
                 "genre": genre,
                 "doc_template": doc_template,
+                "cross_file": cross_file,
             }
 
             gate_enabled = getattr(const, "GENRE_GATE_ENABLED", False)
@@ -869,6 +932,15 @@ class RhetoricEngine:
                         issues.extend(found)
                 except Exception:
                     # rule errors should not stop the engine
+                    continue
+
+            # Dispatch external style runners after Python rules
+            for runner in self._runners:
+                try:
+                    found = runner.check(context)
+                    if found:
+                        issues.extend(found)
+                except Exception:
                     continue
 
         return issues

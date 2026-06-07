@@ -8,6 +8,7 @@ from typing import List, Optional
 import typer
 
 from rhetoric_lint.engine import RhetoricEngine
+from rhetoric_lint.fix import apply_fixes
 import rhetoric_lint.const as _const
 
 app = typer.Typer(add_completion=False)
@@ -110,6 +111,21 @@ def lint(
         None,
         help="Override detected genre for all files: technical|scientific|academic|curriculum|legal|general",
     ),
+    style_dir: List[Path] = typer.Option(
+        [], "--style-dir", help="Directory of Vale-compatible style sets (repeatable)"
+    ),
+    style: Optional[str] = typer.Option(
+        None, "--style", help="Comma-separated style names to enable (empty = all in style-dir)"
+    ),
+    no_vale: bool = typer.Option(
+        False, "--no-vale", help="Disable Vale-compatible style runners"
+    ),
+    no_markdownlint: bool = typer.Option(
+        False, "--no-markdownlint", help="Disable markdownlint runner"
+    ),
+    fix: bool = typer.Option(
+        False, "--fix", help="Apply all deterministic fixes in-place"
+    ),
 ):
     """Lint Markdown files for rhetorical quality.
 
@@ -140,10 +156,35 @@ def lint(
         except Exception:
             pass
 
+    # Apply CLI flag overrides to const
+    import rhetoric_lint.const as _c
+    if style_dir:
+        _c.STYLE_DIRS = [str(d) for d in style_dir]
+    if style:
+        _c.ENABLED_STYLES = [s.strip() for s in style.split(",") if s.strip()]
+    if no_vale:
+        _c.STYLE_DIRS = []
+    if no_markdownlint:
+        _c.MARKDOWNLINT_ENABLED = False
+
     files = _discover_files([str(p) for p in paths] if paths else [], ignore_patterns)
 
     engine = RhetoricEngine()
+    engine._init_runners()
     raw_issues = engine.lint_files(files, genre_override=genre or None)
+
+    # Apply fixes in-place before filtering (fixing is independent of display)
+    if fix:
+        by_file: dict = {}
+        for issue in raw_issues:
+            fp = issue.get("path") or issue.get("file") or ""
+            if fp:
+                by_file.setdefault(fp, []).append(issue)
+        for fp, file_issues in by_file.items():
+            try:
+                apply_fixes(fp, file_issues)
+            except (OSError, PermissionError) as e:
+                typer.echo(f"Could not apply fixes to {fp}: {e}", err=True)
 
     # normalize issues
     matches = []

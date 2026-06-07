@@ -173,3 +173,89 @@ def test_forward_reference_as_mentioned_above(tmp_path):
     issues = _run(md, tmp_path)
     checks = {i["check"] for i in issues}
     assert "Cohesion.ForwardReference" in checks
+
+
+# ---------------------------------------------------------------------------
+# Rhetoric.UnresolvedContrast
+# ---------------------------------------------------------------------------
+
+
+def _contrast_checks(text: str, tmp_path):
+    issues = _run(text, tmp_path)
+    return {i["check"] for i in issues}
+
+
+def test_contrast_resolved_therefore(tmp_path):
+    md = (
+        "# Overview\n\n"
+        "The system processes requests synchronously. "
+        "However, this can be slow under load. "
+        "Therefore, we recommend using the async API for batch workloads. "
+        "This keeps latency low.\n"
+    )
+    checks = _contrast_checks(md, tmp_path)
+    assert "Rhetoric.UnresolvedContrast" not in checks
+
+
+def test_contrast_unresolved_fires(tmp_path):
+    md = (
+        "# Overview\n\n"
+        "The system processes requests synchronously. "
+        "However, this can be slow under load. "
+        "Users have reported timeouts during peak periods. "
+        "The team is investigating root causes.\n"
+    )
+    checks = _contrast_checks(md, tmp_path)
+    assert "Rhetoric.UnresolvedContrast" in checks
+
+
+def test_contrast_below_min_sentences_no_finding(tmp_path):
+    md = "# Overview\n\nBut this is short.\n"
+    checks = _contrast_checks(md, tmp_path)
+    assert "Rhetoric.UnresolvedContrast" not in checks
+
+
+def test_contrast_mid_sentence_signal_no_finding(tmp_path):
+    # "but" appears past the 30% position — should not trigger
+    md = (
+        "# Overview\n\n"
+        "The feature works well in production environments, but edge cases exist. "
+        "We have tested it thoroughly. "
+        "Performance is acceptable across all scenarios. "
+        "Further investigation is ongoing.\n"
+    )
+    checks = _contrast_checks(md, tmp_path)
+    assert "Rhetoric.UnresolvedContrast" not in checks
+
+
+def test_contrast_mid_sentence_no_finding(tmp_path):
+    # "but" deep in a sentence (> 30% position) should not trigger
+    md = (
+        "# Overview\n\n"
+        "The feature works in production environments, but edge cases exist under load. "
+        "We have tested it thoroughly across all scenarios. "
+        "Performance is acceptable in all observed cases. "
+        "Further investigation is ongoing.\n"
+    )
+    issues = _run(md, tmp_path)
+    contrast = [i for i in issues if i["check"] == "Rhetoric.UnresolvedContrast"]
+    assert len(contrast) == 0
+
+
+def test_contrast_precision_corpus(tmp_path):
+    """Zero findings on the precision corpus (false-positive guard)."""
+    import os
+    corpus_dir = (
+        "tests/fixtures/corpus/technical/"
+    )
+    if not os.path.isdir(corpus_dir):
+        return
+    eng = RhetoricEngine()
+    files = [
+        os.path.join(corpus_dir, f)
+        for f in os.listdir(corpus_dir)
+        if f.endswith(".md")
+    ]
+    issues = eng.lint_files(files)
+    contrast = [i for i in issues if i["check"] == "Rhetoric.UnresolvedContrast"]
+    assert contrast == [], f"Unexpected findings on precision corpus: {contrast}"
