@@ -1,0 +1,8 @@
+extends: occurrence
+message: "Too many nominalizations in one sentence (%s found, max 3) — prefer verbs over noun forms."
+level: warning
+scope: sentence
+max: 3
+ignorecase: true
+tokens:
+  - \b\w{5,}(?:tion|sion|ment|ance|ence|ness|ity|ism)\b

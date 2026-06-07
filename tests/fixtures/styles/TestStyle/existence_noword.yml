@@ -1,0 +1,7 @@
+extends: existence
+message: "Found flagged substring: '%s'"
+level: suggestion
+scope: text
+nonword: true
+tokens:
+  - baz

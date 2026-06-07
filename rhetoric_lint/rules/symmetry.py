@@ -152,9 +152,9 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                 if node.get("type") == "ListItem":
                     ast_list_items.append(
                         {
-                            "text": node.get("text"),
-                            "start": node.get("start"),
-                            "end": node.get("end"),
+                            "text": node.get("text") or "",
+                            "start": node.get("start") if node.get("start") is not None else para.get("pos", 0),
+                            "end": node.get("end") if node.get("end") is not None else para.get("pos", 0),
                             "list_type": node.get("list_type", "ul"),
                         }
                     )
@@ -319,6 +319,13 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     # Structure.TaskOrientation: compute per-H2 section task density
     # Split document into H2 sections (include content until next H2 or EOF)
+    # -------------------------------------------------------------------------
+    # Symmetry.TabVariantBalance
+    # -------------------------------------------------------------------------
+    _tab_variant_balance(issues, sections, path, text, const)
+
+    # Structure.TaskOrientation: compute per-H2 section task density
+    # Split document into H2 sections (include content until next H2 or EOF)
     h2_re = re.compile(r"^##\s+(.*)$", re.M)
     h2_matches = list(h2_re.finditer(text))
     section_spans = []
@@ -414,4 +421,105 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                 }
             )
 
+    # -------------------------------------------------------------------------
+    # Symmetry.TabVariantBalance
+    # -------------------------------------------------------------------------
+    _tab_variant_balance(issues, sections, path, text, const)
+
     return issues
+
+
+# Tab title pattern: blockquote bold produced by the pymdownx `///` rewriter
+# e.g. "> **Tab title**\n> ...\n"
+_TAB_TITLE_RE = re.compile(r"^>\s+\*\*(.+?)\*\*\s*$", re.M)
+
+
+def _tab_variant_balance(
+    issues: List[Dict],
+    sections: List[Dict],
+    path: str,
+    text: str,
+    const,
+) -> None:
+    """Symmetry.TabVariantBalance: content-tab variants should have equal step counts."""
+    tolerance = getattr(const, "TAB_VARIANT_STEP_TOLERANCE", 1) if const else 1
+    severity = (
+        const.RULE_SEVERITY_LEVELS.get("Symmetry.TabVariantBalance", "warning")
+        if const else "warning"
+    )
+
+    for sec in sections:
+        if sec.get("topic_type") == "reference":
+            continue
+
+        # Collect paragraphs that start with a tab-title blockquote bold pattern
+        # and group them into variant clusters
+        variants: List[Dict] = []  # list of {title, ol_count, line}
+        current_title: Optional[str] = None
+        current_ol = 0
+        current_line = 0
+        # Track whether we're inside a tab-group (consecutive blockquote sections)
+        in_tab_group = False
+
+        for para in sec.get("paragraphs", []):
+            para_text = para.get("text", "")
+            para_line = para.get("line", 1)
+            nodes = para.get("nodes", [])
+
+            # Detect tab title: blockquote paragraph whose first line is bold-title
+            m = _TAB_TITLE_RE.match(para_text)
+            if m:
+                # Save previous variant before starting new one
+                if current_title is not None:
+                    variants.append({
+                        "title": current_title,
+                        "ol_count": current_ol,
+                        "line": current_line,
+                    })
+                current_title = m.group(1)
+                # Count OL items in the title paragraph itself (engine may merge them)
+                current_ol = sum(
+                    1 for n in nodes
+                    if n.get("type") == "ListItem" and n.get("list_type") == "ol"
+                )
+                current_line = para_line
+                in_tab_group = True
+            elif in_tab_group and current_title:
+                # Accumulate OL items from subsequent paragraphs within this variant
+                ol_items = sum(
+                    1 for n in nodes
+                    if n.get("type") == "ListItem" and n.get("list_type") == "ol"
+                )
+                current_ol += ol_items
+
+        # Flush last variant
+        if current_title is not None and in_tab_group:
+            variants.append({
+                "title": current_title,
+                "ol_count": current_ol,
+                "line": current_line,
+            })
+
+        if len(variants) < 2:
+            continue
+
+        counts = [v["ol_count"] for v in variants]
+        # Skip if all variants are code-only (zero steps)
+        if max(counts) == 0:
+            continue
+
+        step_spread = max(counts) - min(counts)
+        if step_spread > tolerance:
+            first_line = variants[0]["line"]
+            issues.append({
+                "path": path,
+                "line": first_line,
+                "column": 1,
+                "message": (
+                    f"Content-tab variants have unequal step counts "
+                    f"({', '.join(str(c) for c in counts)}) — "
+                    f"readers following one variant will have a different experience."
+                ),
+                "severity": severity,
+                "check": "Symmetry.TabVariantBalance",
+            })

@@ -98,6 +98,23 @@ Tier 3 — Depends on Tier 2
        ReadabilityGrade, UnsupportedClaim (needs SP4 + SP8)
   SP7: Rhetoric YAML additions — Terminology.yml, Inclusivity.yml
 
+TODO
+  TabVariantBalance: rule is structural (AST OL-item counting), not NLP — no spaCy dep.
+    After SP8 ships, move it out of the NLP grouping and note in symmetry.py that it
+    requires no language model. The max-min arithmetic stays; only the SP8 label is wrong.
+
+  Docs generation: two-tool hybrid.
+    - pdoc (dev dep) for Python rule modules → docs/api/
+    - `rhetoric-lint docs` CLI subcommand for YAML style rules (styles/*/*.yml)
+      Outputs Markdown in same style as pdoc; grouped by style dir; reads
+      message/level/extends/link from each YAML file.
+    - meta.json required in each styles/* subdir for section headers.
+    - Makefile `docs` target runs both in sequence.
+    - ~14 rule modules need minimal check() docstrings before pdoc is useful:
+      adr, concept, doc_templates, explanation, faq, headings, howto,
+      metric_density, nominalizations, postmortem, preferred_form, reference,
+      syntactic_depth, tone, troubleshooting, tutorial.
+
 Backlog — Blocked on CrossFileContext (from SP1)
   SP10: DependencyReveal
   SP11: ConceptReintroductionPenalty

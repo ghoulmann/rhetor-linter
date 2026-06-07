@@ -454,6 +454,13 @@ RULE_SEVERITY_LEVELS = {
     "Completeness.StructureLead": "suggestion",
     "Engine.OversizedDocument": "suggestion",
     "Rhetoric.UnresolvedContrast": "suggestion",
+    # SP8 — NLP rule expansion
+    "Attention.SyntacticDepth": "suggestion",
+    "Rhetoric.Nominalization": "suggestion",
+    "Attention.MetricDensity": "suggestion",
+    "Rhetoric.ToneImbalance": "suggestion",
+    "Terminology.PreferredForm": "warning",
+    "Symmetry.TabVariantBalance": "warning",
 }
 
 # ---------------------------------------------------------------------------
@@ -501,3 +508,67 @@ MARKDOWNLINT_CONFIG: str = ""
 # Path to an optional custom terminology JSON file (list of preferred terms).
 # Empty string = disabled.
 TERMINOLOGY_FILE: str = ""
+
+# ---------------------------------------------------------------------------
+# SP8 — NLP Rule Expansion thresholds
+# ---------------------------------------------------------------------------
+
+# Attention.SyntacticDepth — requires BOTH depth AND nested clause conditions
+SYNTACTIC_DEPTH_MAX = 10
+NESTED_CLAUSE_MAX = 4
+
+# Attention.MetricDensity
+METRIC_DENSITY_RATIO = 0.30
+METRIC_DENSITY_WINDOW = 10
+METRIC_DENSITY_WINDOW_MAX = 3
+METRIC_DENSITY_MIN_TOKENS = 12
+
+# Rhetoric.Nominalization
+NOMINALIZATION_SUFFIXES = ("-tion", "-ment", "-ance", "-ity", "-ness")
+# Common technical nouns that end in nominalization suffixes but are standard domain terms
+NOMINALIZATION_EXCEPTIONS: list = [
+    "application", "information", "condition", "conditions", "operation", "operations",
+    "specification", "specifications", "transition", "transitions", "administration",
+    "version", "versions", "location", "locations", "connection", "connections",
+    "section", "sections", "option", "options", "function", "functions",
+    "position", "positions", "definition", "definitions", "extension", "extensions",
+    "action", "actions", "nation", "nations", "mention", "mentions",
+    "intention", "attention", "convention", "conventions", "permission", "permissions",
+    "documentation", "configuration", "authorization", "authentication",
+    "representation", "presentation", "annotation", "annotations",
+    "exception", "exceptions", "subscription", "subscriptions",
+    "collection", "collections", "pagination", "transformation",
+    "termination", "communication", "notification", "notifications",
+    "integration", "integrations", "creation", "deletion", "generation",
+    "evaluation", "iteration", "iteration",
+    # -ment forms
+    "statement", "statements", "environment", "environments", "requirement",
+    "requirements", "management", "deployment", "deployments", "argument",
+    "arguments", "fragment", "fragments", "alignment",
+    # -ity forms
+    "functionality", "availability", "visibility", "security", "priority",
+    "validity", "immutability", "durability", "scalability", "reliability",
+    "compatibility", "stability", "responsibility", "capability", "activity",
+    "quality", "capacity", "community", "identity", "integrity",
+    # -ance/-ence forms
+    "performance", "reference", "references", "instance", "instances",
+    "interface", "interfaces", "sequence", "sequences", "variance",
+]
+
+# Rhetoric.ToneImbalance
+AUTHORITATIVE_MODALS: list = [
+    "must", "shall", "required", "have to", "need to", "always", "never",
+]
+EMPATHETIC_SOFTENERS: list = [
+    "may", "might", "can", "could", "consider", "suggest", "recommend", "optionally",
+]
+NEGATIVE_FRAMING: list = [
+    "cannot", "can't", "won't", "will not", "do not", "don't", "never", "fail",
+    "error", "invalid", "broken", "missing", "unable",
+]
+TONE_AUTHORITATIVE_MAX = 0.15   # fraction of alpha tokens
+TONE_NEGATIVE_MAX = 0.20        # fraction of alpha tokens
+TONE_INSTRUCTIONAL_GENRES = frozenset({"howto", "tutorial"})
+
+# Symmetry.TabVariantBalance
+TAB_VARIANT_STEP_TOLERANCE = 1

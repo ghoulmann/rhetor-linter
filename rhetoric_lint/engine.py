@@ -477,6 +477,11 @@ class RhetoricEngine:
             "explanation",
             "doc_templates",
             "forward_ref",
+            "syntactic_depth",
+            "nominalizations",
+            "metric_density",
+            "tone",
+            "preferred_form",
         ):
             mod = import_module(f"rhetoric_lint.rules.{name}")
             if hasattr(mod, "check"):

@@ -1,0 +1,6 @@
+extends: existence
+message: "Technical doc issue: '%s'"
+level: warning
+scope: text
+tokens:
+  - wibble
