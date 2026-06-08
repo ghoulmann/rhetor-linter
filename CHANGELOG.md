@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `Coverage.MissingJobCoverage` rule (SP12): fires a warning for each JTBD job in a `jtbd-manifest.json` where `coverage == "missing"` and no paragraph in the file meets the Jaccard threshold; disabled when `--jtbd-manifest` is not set
+- `--jtbd-manifest <path>` CLI flag: loads a jtbd-tool manifest and enables `Coverage.MissingJobCoverage`
+- `const.JTBD_MANIFEST_PATH` and `const.JTBD_COVERAGE_JACCARD_MIN` (default 0.30)
+- `.pre-commit-hooks.yaml`: `rhetoric-lint` (warn+) and `rhetoric-lint-error` (error-only) hook definitions for pre-commit
+- `.github/workflows/rhetoric-lint.yml`: GitHub Actions workflow — checks out, installs, downloads `en_core_web_sm`, runs `rhetoric-lint lint` on `docs/` and `README.md`
+- `docs/ci-integration.md`: setup guide covering pre-commit, GitHub Actions, severity knob, file scoping, and score subcommand
 - `rhetoric-lint score` CLI subcommand: runs a full lint pass and outputs dimension scores (Clarity, Structure, Completeness, Style, Readability) as JSON with per-1000-word densities; always exits 0
 - `RhetoricEngine.last_doc_templates` and `last_word_counts` — per-file metadata persisted after each `lint_files()` call, used by `score_file()`
 - `score_file()` accepts optional `word_count` kwarg for callers that have pre-computed token counts

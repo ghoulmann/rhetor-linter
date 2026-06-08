@@ -126,6 +126,9 @@ def lint(
     fix: bool = typer.Option(
         False, "--fix", help="Apply all deterministic fixes in-place"
     ),
+    jtbd_manifest: Optional[str] = typer.Option(
+        None, "--jtbd-manifest", help="Path to jtbd-manifest.json for Coverage.MissingJobCoverage rule"
+    ),
 ):
     """Lint Markdown files for rhetorical quality.
 
@@ -166,6 +169,8 @@ def lint(
         _c.STYLE_DIRS = []
     if no_markdownlint:
         _c.MARKDOWNLINT_ENABLED = False
+    if jtbd_manifest:
+        _c.JTBD_MANIFEST_PATH = jtbd_manifest
 
     files = _discover_files([str(p) for p in paths] if paths else [], ignore_patterns)
 

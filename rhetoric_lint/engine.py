@@ -578,6 +578,7 @@ class RhetoricEngine:
             "passive_voice",
             "sentence_rhythm",
             "unsupported_claim",
+            "jtbd_coverage",
         ):
             mod = import_module(f"rhetoric_lint.rules.{name}")
             if hasattr(mod, "check"):
@@ -911,6 +912,17 @@ class RhetoricEngine:
         cross_file = CrossFileContext()
         cross_file.scan(paths, self.nlp)
 
+        # SP12: Load JTBD manifest once per run (not per file)
+        jtbd_manifest: Optional[Dict[str, Any]] = None
+        manifest_path = getattr(const, "JTBD_MANIFEST_PATH", "")
+        if manifest_path:
+            try:
+                import json as _json
+                with open(manifest_path, "r", encoding="utf-8") as _f:
+                    jtbd_manifest = _json.load(_f)
+            except Exception:
+                pass
+
         issues = []
         for path in paths:
             try:
@@ -1047,6 +1059,7 @@ class RhetoricEngine:
                 "cross_file": cross_file,
                 "frontmatter": frontmatter,
                 "section_annotations": section_annotations,
+                "jtbd_manifest": jtbd_manifest,
             }
 
             gate_enabled = getattr(const, "GENRE_GATE_ENABLED", False)

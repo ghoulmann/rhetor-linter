@@ -352,6 +352,8 @@ RULE_DESCRIPTIONS = {
     "Rhetoric.PassiveVoiceActorGap":    "Passive construction without an explicit by-agent. In instructional prose, actorless passives obscure who performs the step.",
     "Attention.SentenceRhythm":         "Section has monotonous or wildly uneven sentence-length pacing (high CV or extreme min/max ratio).",
     "Completeness.UnsupportedClaim":    "Assertion signal (therefore, this means, thus, etc.) not followed by evidence, an example, or a code sample within 2 sentences.",
+    # SP12 — JTBD coverage
+    "Coverage.MissingJobCoverage":      "A JTBD job detected by jtbd-tool has no documentation coverage in this file.",
 }
 
 # ---------------------------------------------------------------------------
@@ -457,6 +459,8 @@ RULE_SEVERITY_LEVELS = {
     "Rhetoric.PassiveVoiceActorGap": "suggestion",
     "Attention.SentenceRhythm": "suggestion",
     "Completeness.UnsupportedClaim": "suggestion",
+    # SP12 — JTBD coverage
+    "Coverage.MissingJobCoverage": "warning",
 }
 
 # ---------------------------------------------------------------------------
@@ -649,3 +653,10 @@ FRONTMATTER_ALIASES: dict = {
 # ---------------------------------------------------------------------------
 
 SCORE_MIN_WORDS: int = 150
+
+# ---------------------------------------------------------------------------
+# SP12 — JTBD coverage integration
+# ---------------------------------------------------------------------------
+
+JTBD_MANIFEST_PATH: str = ""          # path to jtbd-manifest.json; empty = rule disabled
+JTBD_COVERAGE_JACCARD_MIN: float = 0.30

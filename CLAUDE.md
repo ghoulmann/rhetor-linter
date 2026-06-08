@@ -165,6 +165,7 @@ Status as of 2026-06-07:
 | F5 | ✅ done | `const.DIMENSION_MAP` — 5 scoring dimensions mapped to rule-check prefixes |
 | F9 | ✅ done | `server/` stub with import constraint (only `score_file`/`ScoreResult`); graduation condition documented |
 | SP_SPELL | ✅ done | `extends: spelling` via spylls; optional dep `[spell]`; `style-sets/Spelling/` with en_US + AWS/tech vocab |
+| SP12 | ✅ done | `Coverage.MissingJobCoverage`: fires warning per JTBD job with no doc coverage; `--jtbd-manifest` CLI flag; `JTBD_MANIFEST_PATH` + `JTBD_COVERAGE_JACCARD_MIN` in const |
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.
