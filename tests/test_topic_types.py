@@ -1,6 +1,7 @@
 """Tests for topic_type classifier and topic-type rule files."""
 import pytest
-from rhetoric_lint.topic_type import classify_section_topic
+from types import SimpleNamespace
+from rhetoric_lint.topic_type import classify_section_topic, _classify_section_by_body
 from rhetoric_lint.rules.concept import check as concept_check
 from rhetoric_lint.rules.troubleshooting import check as ts_check
 from rhetoric_lint.rules.howto import check as howto_check
@@ -281,3 +282,96 @@ class TestExplanation:
         sec = _sec("Why", body="Brief note.", topic_type="explanation", start=0, end=20)
         ctx = _ctx([sec], text="Brief note.")
         assert explanation_check(ctx) == []
+
+
+# ---------------------------------------------------------------------------
+# _classify_section_by_body: body-NLP tiebreaker
+# ---------------------------------------------------------------------------
+
+class _FakeToken:
+    def __init__(self, text, tag_, is_alpha=True, is_stop=False):
+        self.text = text
+        self.tag_ = tag_
+        self.is_alpha = is_alpha
+        self.is_stop = is_stop
+        self.lemma_ = text.lower()
+
+
+class _FakeSent:
+    def __init__(self, tokens):
+        self._tokens = tokens
+
+    def __iter__(self):
+        return iter(self._tokens)
+
+
+class _FakeDoc:
+    def __init__(self, sents):
+        self._sents = sents
+
+    @property
+    def sents(self):
+        return iter(self._sents)
+
+
+def _make_imperative_doc(n_imperative: int, n_declarative: int) -> _FakeDoc:
+    sents = []
+    for _ in range(n_imperative):
+        sents.append(_FakeSent([_FakeToken("Run", "VB"), _FakeToken("the", "DT", is_alpha=True)]))
+    for _ in range(n_declarative):
+        sents.append(_FakeSent([_FakeToken("The", "DT", is_alpha=True), _FakeToken("service", "NN", is_alpha=True)]))
+    return _FakeDoc(sents)
+
+
+def _sec_with_doc(heading: str, doc) -> dict:
+    return {
+        "heading": heading,
+        "level": 2,
+        "start": 0,
+        "end": 100,
+        "paragraphs": [{"text": "body", "pos": 0, "doc": doc, "sentences": [], "nodes": []}],
+    }
+
+
+class TestBodyNLPTiebreaker:
+    def test_imperative_dominant_returns_howto(self):
+        # 4 imperative, 1 declarative → ratio 0.80 ≥ 0.40
+        doc = _make_imperative_doc(4, 1)
+        sec = _sec_with_doc("Getting ready", doc)
+        assert _classify_section_by_body(sec) == "howto"
+
+    def test_declarative_dominant_returns_general(self):
+        # 1 imperative, 9 declarative → ratio 0.10 < 0.40
+        doc = _make_imperative_doc(1, 9)
+        sec = _sec_with_doc("Getting ready", doc)
+        assert _classify_section_by_body(sec) == "general"
+
+    def test_no_doc_returns_general(self):
+        sec = {
+            "heading": "Getting ready",
+            "paragraphs": [{"text": "body", "pos": 0, "doc": None, "sentences": [], "nodes": []}],
+        }
+        assert _classify_section_by_body(sec) == "general"
+
+    def test_no_paragraphs_returns_general(self):
+        sec = {"heading": "Getting ready", "paragraphs": []}
+        assert _classify_section_by_body(sec) == "general"
+
+    def test_custom_threshold_via_const(self):
+        # threshold raised to 0.90 — 4/5 = 0.80 should now return "general"
+        doc = _make_imperative_doc(4, 1)
+        sec = _sec_with_doc("Getting ready", doc)
+        const = SimpleNamespace(SECTION_IMPERATIVE_RATIO_HOWTO=0.90)
+        assert _classify_section_by_body(sec, const) == "general"
+
+    def test_classify_section_topic_falls_through_to_tiebreaker(self):
+        # Generic heading + imperative body → howto via tiebreaker
+        doc = _make_imperative_doc(4, 1)
+        sec = _sec_with_doc("Getting ready", doc)
+        assert classify_section_topic(sec) == "howto"
+
+    def test_classify_section_topic_keyword_wins_over_tiebreaker(self):
+        # Known heading keyword "overview" → concept, despite imperative body
+        doc = _make_imperative_doc(4, 1)
+        sec = _sec_with_doc("Overview", doc)
+        assert classify_section_topic(sec) == "concept"

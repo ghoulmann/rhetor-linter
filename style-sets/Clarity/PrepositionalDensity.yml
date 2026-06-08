@@ -1,0 +1,8 @@
+extends: occurrence
+message: "Too many prepositional phrases in one sentence (%s found, max 2) — consider splitting or restructuring."
+level: warning
+scope: sentence
+max: 2
+ignorecase: true
+tokens:
+  - \b(?:about|above|across|after|against|along|among|around|at|before|behind|below|beneath|beside|between|beyond|by|down|during|except|for|from|in|inside|into|like|near|of|off|on|onto|out|outside|over|past|since|through|throughout|till|to|toward|under|underneath|until|up|upon|within|without)\s+\w

@@ -1,0 +1,7 @@
+extends: metric
+message: "Flesch Reading Ease score (%s) is below 50 — simplify sentence structure or word choice."
+level: warning
+scope: summary
+formula: |
+  206.835 - (1.015 * (words / sentences)) - (84.6 * (syllables / words))
+condition: "< 50"

@@ -138,18 +138,6 @@ TASK_INTRO_PATTERNS = [
     "do the following",
 ]
 
-# Trivializing language (Rhetoric.TrivializingLanguage)
-# NOTE: "just" has high false-positive risk (non-trivializing uses: "just as important",
-# "not just X", "just released"). Monitor precision and remove if noisy.
-TRIVIALIZING_WORDS = [
-    "simply",
-    "just",
-    "easily",
-    "obviously",
-    "of course",
-    "straightforward",
-]
-
 # Modal ambiguity (Rhetoric.ModalAmbiguity)
 PRESCRIPTIVE_MODALS = ["must", "shall", "required", "have to", "need to", "has to", "needs to"]
 ADVISORY_MODALS = ["should", "may", "might", "recommend", "consider", "optional"]
@@ -359,6 +347,13 @@ RULE_DESCRIPTIONS = {
     "Completeness.ConceptOverload":     "Too many paragraphs of explanation appear before the first actionable step or structural element.",
     "Completeness.StructureLead":       "Section opens directly with a list or code block without a lead sentence explaining its purpose.",
     "Engine.OversizedDocument":         "Document exceeds NLP_MAX_CHARS; full-document NLP analysis was truncated. Section-level checks run on the complete file.",
+    "Rhetoric.UnresolvedContrast":      "A contrast signal (however, but, although, etc.) appears without a following resolution — the reader cannot determine the takeaway.",
+    # SP9
+    "Rhetoric.PassiveVoiceActorGap":    "Passive construction without an explicit by-agent. In instructional prose, actorless passives obscure who performs the step.",
+    "Attention.SentenceRhythm":         "Section has monotonous or wildly uneven sentence-length pacing (high CV or extreme min/max ratio).",
+    "Completeness.UnsupportedClaim":    "Assertion signal (therefore, this means, thus, etc.) not followed by evidence, an example, or a code sample within 2 sentences.",
+    # SP12 — JTBD coverage
+    "Coverage.MissingJobCoverage":      "A JTBD job detected by jtbd-tool has no documentation coverage in this file.",
 }
 
 # ---------------------------------------------------------------------------
@@ -452,4 +447,216 @@ RULE_SEVERITY_LEVELS = {
     "Completeness.ConceptOverload": "suggestion",
     "Completeness.StructureLead": "suggestion",
     "Engine.OversizedDocument": "suggestion",
+    "Rhetoric.UnresolvedContrast": "suggestion",
+    # SP8 — NLP rule expansion
+    "Attention.SyntacticDepth": "suggestion",
+    "Rhetoric.Nominalization": "suggestion",
+    "Attention.MetricDensity": "suggestion",
+    "Rhetoric.ToneImbalance": "suggestion",
+    "Terminology.PreferredForm": "warning",
+    "Symmetry.TabVariantBalance": "warning",
+    # SP9 — ProsePartner gaps
+    "Rhetoric.PassiveVoiceActorGap": "suggestion",
+    "Attention.SentenceRhythm": "suggestion",
+    "Completeness.UnsupportedClaim": "suggestion",
+    # SP12 — JTBD coverage
+    "Coverage.MissingJobCoverage": "warning",
 }
+
+# ---------------------------------------------------------------------------
+# Rhetoric.UnresolvedContrast (SP_CONTRAST)
+# ---------------------------------------------------------------------------
+
+CONTRAST_SIGNALS = [
+    "however", "but", "although", "nevertheless", "on the other hand",
+    "on the contrary", "in contrast", "by contrast", "even so", "yet",
+    "despite", "nonetheless", "that said", "while", "whereas",
+    "notwithstanding",
+]
+
+CONTRAST_RESOLUTION_SIGNALS = [
+    "therefore", "thus", "so", "as a result", "consequently", "this means",
+    "which means", "instead", "rather", "still", "ultimately", "in practice",
+    "in fact", "the key point", "the solution", "to address this",
+]
+
+CONTRAST_UNRESOLVED_MAX_PER_PARA = 2
+CONTRAST_MIN_SENTENCES = 3
+
+# Body-NLP tiebreaker: imperative-sentence ratio threshold for howto detection
+SECTION_IMPERATIVE_RATIO_HOWTO = 0.40
+
+# ---------------------------------------------------------------------------
+# SP9 — ProsePartner gaps
+# ---------------------------------------------------------------------------
+
+# Attention.SentenceRhythm
+SENTENCE_RHYTHM_CV_MAX = 0.8
+SENTENCE_RHYTHM_SPIKE_RATIO = 4.0
+SENTENCE_RHYTHM_MIN_SENTENCES = 4
+
+# Completeness.UnsupportedClaim
+UNSUPPORTED_CLAIM_LOOKAHEAD_SENTENCES = 2
+UNSUPPORTED_CLAIM_MAX_PER_PARA = 2
+
+# ---------------------------------------------------------------------------
+# Runner / style infrastructure (SP1)
+# ---------------------------------------------------------------------------
+
+# Directories to search for Vale-compatible style sets.
+# Populated at runtime by --style-dir CLI flags or config key.
+STYLE_DIRS: list = []
+
+# Style names to enable (empty list = all styles in STYLE_DIRS).
+# Populated at runtime by --style CLI flag or config key.
+ENABLED_STYLES: list = []
+
+# markdownlint integration toggle.  Set to False with --no-markdownlint.
+MARKDOWNLINT_ENABLED: bool = True
+
+# Path to a .markdownlint.json / .markdownlint.yaml config file.
+# Empty string = auto-discover from the linted file's directory toward root.
+MARKDOWNLINT_CONFIG: str = ""
+
+# Path to an optional custom terminology JSON file (list of preferred terms).
+# Empty string = disabled.
+TERMINOLOGY_FILE: str = ""
+
+# ---------------------------------------------------------------------------
+# SP8 — NLP Rule Expansion thresholds
+# ---------------------------------------------------------------------------
+
+# Attention.SyntacticDepth — requires BOTH depth AND nested clause conditions
+SYNTACTIC_DEPTH_MAX = 10
+NESTED_CLAUSE_MAX = 4
+
+# Attention.MetricDensity
+METRIC_DENSITY_RATIO = 0.30
+METRIC_DENSITY_WINDOW = 10
+METRIC_DENSITY_WINDOW_MAX = 3
+METRIC_DENSITY_MIN_TOKENS = 12
+
+# Rhetoric.Nominalization
+NOMINALIZATION_SUFFIXES = ("-tion", "-ment", "-ance", "-ity", "-ness")
+# Common technical nouns that end in nominalization suffixes but are standard domain terms
+NOMINALIZATION_EXCEPTIONS: list = [
+    "application", "information", "condition", "conditions", "operation", "operations",
+    "specification", "specifications", "transition", "transitions", "administration",
+    "version", "versions", "location", "locations", "connection", "connections",
+    "section", "sections", "option", "options", "function", "functions",
+    "position", "positions", "definition", "definitions", "extension", "extensions",
+    "action", "actions", "nation", "nations", "mention", "mentions",
+    "intention", "attention", "convention", "conventions", "permission", "permissions",
+    "documentation", "configuration", "authorization", "authentication",
+    "representation", "presentation", "annotation", "annotations",
+    "exception", "exceptions", "subscription", "subscriptions",
+    "collection", "collections", "pagination", "transformation",
+    "termination", "communication", "notification", "notifications",
+    "integration", "integrations", "creation", "deletion", "generation",
+    "evaluation", "iteration", "iteration",
+    # -ment forms
+    "statement", "statements", "environment", "environments", "requirement",
+    "requirements", "management", "deployment", "deployments", "argument",
+    "arguments", "fragment", "fragments", "alignment",
+    # -ity forms
+    "functionality", "availability", "visibility", "security", "priority",
+    "validity", "immutability", "durability", "scalability", "reliability",
+    "compatibility", "stability", "responsibility", "capability", "activity",
+    "quality", "capacity", "community", "identity", "integrity",
+    # -ance/-ence forms
+    "performance", "reference", "references", "instance", "instances",
+    "interface", "interfaces", "sequence", "sequences", "variance",
+]
+
+# Rhetoric.ToneImbalance
+AUTHORITATIVE_MODALS: list = [
+    "must", "shall", "required", "have to", "need to", "always", "never",
+]
+EMPATHETIC_SOFTENERS: list = [
+    "may", "might", "can", "could", "consider", "suggest", "recommend", "optionally",
+]
+NEGATIVE_FRAMING: list = [
+    "cannot", "can't", "won't", "will not", "do not", "don't", "never", "fail",
+    "error", "invalid", "broken", "missing", "unable",
+]
+TONE_AUTHORITATIVE_MAX = 0.15   # fraction of alpha tokens
+TONE_NEGATIVE_MAX = 0.20        # fraction of alpha tokens
+TONE_INSTRUCTIONAL_GENRES = frozenset({"howto", "tutorial"})
+
+# Symmetry.TabVariantBalance
+TAB_VARIANT_STEP_TOLERANCE = 1
+
+# ---------------------------------------------------------------------------
+# F5 — Dimension → rule prefix mapping
+# Five curated scoring dimensions. Rules are assigned by their check prefix.
+# Vale YAML rules are bucketed under Style; readability YAML under Readability.
+# ---------------------------------------------------------------------------
+
+DIMENSION_MAP: dict = {
+    "Clarity": [
+        "Rhetoric",
+        "Attention",
+        "Cohesion",
+        "Coherence",
+    ],
+    "Structure": [
+        "Heading",
+        "Symmetry",
+        "Structure",
+        "Navigation",
+    ],
+    "Completeness": [
+        "Completeness",
+        "Resilience",
+        "Curriculum",
+    ],
+    "Style": [
+        "Unity",
+        "Lexical",
+        "Terminology",
+        # Vale YAML style rules (any check containing a dot-separated style prefix)
+        "Rhetoric.TrivializingLanguage",
+        "Rhetoric.Terminology",
+        "Rhetoric.Inclusivity",
+        "Rhetoric.InclusivityFlag",
+        "Clarity.FleschReadingEase",
+        "Clarity.Nominalizations",
+        "Clarity.PrepositionalDensity",
+    ],
+    "Readability": [
+        "Rhetoric.ReadabilityGrade",
+        "Clarity.FleschReadingEase",
+    ],
+}
+
+# Fallback dimension for rules not matched by any prefix above.
+DIMENSION_DEFAULT = "Style"
+
+# ---------------------------------------------------------------------------
+# F2 — Frontmatter field aliases
+# Canonical key → list of accepted aliases (all lowercased at parse time).
+# ---------------------------------------------------------------------------
+
+FRONTMATTER_ALIASES: dict = {
+    "topic_type":  ["topic_type", "doctype", "doc_type", "type"],
+    "sdlc_phase":  ["sdlc_phase", "sdlc", "phase"],
+    "audience":    ["audience", "target_audience"],
+    "owner":       ["owner", "team", "maintainer"],
+    "author":      ["author", "authors"],
+    "tags":        ["tags", "keywords", "labels"],
+    "title":       ["title"],
+}
+
+# ---------------------------------------------------------------------------
+# F4 — Scoring floor
+# Documents below this word count suppress the quality badge.
+# ---------------------------------------------------------------------------
+
+SCORE_MIN_WORDS: int = 150
+
+# ---------------------------------------------------------------------------
+# SP12 — JTBD coverage integration
+# ---------------------------------------------------------------------------
+
+JTBD_MANIFEST_PATH: str = ""          # path to jtbd-manifest.json; empty = rule disabled
+JTBD_COVERAGE_JACCARD_MIN: float = 0.30

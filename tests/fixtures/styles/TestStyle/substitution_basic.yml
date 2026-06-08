@@ -1,0 +1,7 @@
+extends: substitution
+message: "Use '%s' instead"
+level: warning
+scope: text
+swap:
+  utilize: use
+  leverages: uses

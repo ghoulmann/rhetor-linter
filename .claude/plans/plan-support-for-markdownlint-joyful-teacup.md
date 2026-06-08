@@ -30,46 +30,65 @@
 ## Dependency graph
 
 ```
-SP1: Runner Infrastructure + Fix Framework + CrossFileContext stub
- ├── SP2: Vale Core (existence + substitution)
- │    ├── SP4: Vale Extended Types (+ _readability.py)
- │    │    └── SP9: ProsePartner Gaps (also needs SP8)
- │    ├── SP6: Rhetoric YAML Migration (TrivializingLanguage)
- │    ├── SP7: Rhetoric YAML Additions (Terminology, Inclusivity)
- │    └── SP_SPELL: Vale spelling rule type
- ├── SP3: markdownlint Native Rules
- │    └── SP5: markdownlint-cli2 Python Custom Rule Extension
- ├── SP8: NLP Rule Expansion (5 rules + TabVariantBalance)
- │    └── SP9: ProsePartner Gaps (also needs SP4)
+SP1: Runner Infrastructure + Fix Framework + CrossFileContext stub  ✅
+ ├── SP2: Vale Core (existence + substitution)  ✅
+ │    ├── SP4: Vale Extended Types (+ _readability.py)  ✅
+ │    │    └── SP9: ProsePartner Gaps (also needs SP8)  ✅
+ │    ├── SP6: Rhetoric YAML Migration (TrivializingLanguage)  ✅
+ │    ├── SP7: Rhetoric YAML Additions (Terminology, Inclusivity)  ✅
+ │    └── SP_SPELL: Vale spelling rule type  ✅
+ ├── SP3: markdownlint Native Rules  ✅
+ │    └── SP5: markdownlint-cli2 Python Custom Rule Extension  ✅
+ ├── SP8: NLP Rule Expansion (5 rules + TabVariantBalance)  ✅
+ │    └── SP9: ProsePartner Gaps (also needs SP4)  ✅
  └── CrossFileContext (from SP1)
-      ├── SP10: DependencyReveal
-      └── SP11: ConceptReintroductionPenalty
+      ├── SP10: DependencyReveal  [backlog]
+      └── SP11: ConceptReintroductionPenalty  [backlog]
 
 Independent (after SP1 CLI stable):
- └── SP_CI: Pre-commit + GitHub Actions
-
-Independent (any time):
- └── SP_CONTRAST: Rhetoric.UnresolvedContrast
+ ├── SP_CI: Pre-commit + GitHub Actions  ✅
+ ├── SP_CONTRAST: Rhetoric.UnresolvedContrast  ✅
+ ├── SP_GENRE: 10-genre Diataxis classifier  ✅
+ └── SP12: Coverage.MissingJobCoverage (JTBD manifest)  ✅
+      ├── SP_VCS: Coverage.DocCodeDrift (git diff → Jaccard)  [backlog]
+      └── SP_CONFIG: Layered config + dimension taxonomy redesign  [open]
+           ├── SP_FAQ: FAQ.SemanticMisrouting  [backlog]
+           └── SP_CONFIG_VCS: Config revision tracking (XDG git)  [backlog]
 ```
 
-| # | Subplan | Depends on |
-|---|---|---|
-| SP1 | Runner infrastructure + fix framework + CrossFileContext stub | — |
-| SP2 | Vale core types (existence + substitution) | SP1 |
-| SP3 | markdownlint native MD rules | SP1 |
-| SP4 | Vale extended types (occurrence … sequence/NLP) | SP2 |
-| SP5 | markdownlint-cli2 Python custom rule extension | SP3 |
-| SP6 | Migrate TrivializingLanguage to Vale YAML | SP2 |
-| SP7 | Rhetoric YAML additions (Terminology, Inclusivity) | SP2 |
-| SP8 | NLP rule expansion (5 spaCy rules + TabVariantBalance) | SP1 |
-| SP9 | ProsePartner gaps (4 rules) | SP8, SP4 |
-| SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 |
-| SP_CI | Pre-commit + GitHub Actions integration | SP1 |
-| SP_CONTRAST | Rhetoric.UnresolvedContrast | — |
-| SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) |
-| SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) |
+| # | Subplan | Depends on | Status |
+|---|---|---|---|
+| SP1 | Runner infrastructure + fix framework + CrossFileContext stub | — | ✅ done |
+| SP2 | Vale core types (existence + substitution) | SP1 | ✅ done |
+| SP3 | markdownlint native MD rules | SP1 | ✅ done |
+| SP4 | Vale extended types (occurrence … sequence/NLP) | SP2 | ✅ done |
+| SP5 | markdownlint-cli2 Python custom rule extension | SP3 | ✅ done |
+| SP6 | Migrate TrivializingLanguage to Vale YAML | SP2 | ✅ done |
+| SP7 | Rhetoric YAML additions (Terminology, Inclusivity) | SP2 | ✅ done |
+| SP8 | NLP rule expansion (6 spaCy rules + TabVariantBalance) | SP1 | ✅ done |
+| SP9 | ProsePartner gaps (3 Python rules + ReadabilityGrade.yml) | SP8, SP4 | ✅ done |
+| SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 | ✅ done |
+| SP_CONTRAST | Rhetoric.UnresolvedContrast | — | ✅ done |
+| SP_GENRE | Genre refactor: 10-genre Diataxis set, filename detection, corpus relabeling | — | ✅ done |
+| SP_CI | Pre-commit + GitHub Actions integration | SP1 | ✅ done |
+| SP12 | Coverage.MissingJobCoverage — JTBD manifest integration, `--jtbd-manifest` flag | SP1 | ✅ done |
+| F1 | Section annotation pre-pass | engine.py | ✅ done |
+| F2 | Frontmatter parsing + FRONTMATTER_ALIASES | engine.py | ✅ done |
+| F4 | SCORE_MIN_WORDS = 150 + score.py skeleton | const.py, score.py | ✅ done |
+| F5 | DIMENSION_MAP (5 scoring dimensions → redesigned as 5 new dims; see SP_CONFIG) | const.py | ✅ done |
+| F9 | metadata.py: normalise_topic_type, normalise_owner, normalise_frontmatter | metadata.py | ✅ done |
+| SP_CONFIG | Layered config system: autodiscovery, per-path scoping, per-rule severity overrides, TOML primary, XDG defaults; includes dimension taxonomy redesign (Form + Coverage replace Completeness; Readability absorbed into Clarity) | SP12 | open — plan at `plan-the-implementation-moonlit-shell.md` |
+| F3 | SP12 N×M spam — resolved-by-design: linter trusts manifest `coverage` verdict; no per-file Jaccard | — | ✅ resolved |
+| F6 | SP12 tokenizer parity — resolved-by-design: linter no longer tokenizes job text; F3 fix removes the need | — | ✅ resolved |
+| F8 | Document polling staleness as known limitation in server docs | server stub | open |
+| F10 | Server import constraint in CONTRIBUTING.md | server stub | open |
+| SP_VCS | Coverage.DocCodeDrift — git diff → conventional commit parsing → Jaccard against docs; `rhetoric-lint vcs-manifest` preprocessor | SP12 | backlog |
+| SP_FAQ | FAQ.SemanticMisrouting — detect FAQ entries that belong in another topic type | SP_GENRE | backlog |
+| SP_CONFIG_VCS | Per-project config revision tracking under `~/.rhetoric-lint/projects/` (bare git, no DB) | SP_CONFIG | backlog |
+| SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) | backlog |
+| SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) | backlog |
 
-SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1).
+SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1). SP_CONFIG is the next open sprint.
 
 ---
 
@@ -94,9 +113,97 @@ Tier 2 — Extensions (parallel after Tier 1)
   SP_SPELL: Vale spelling rule type (spylls optional dep)
 
 Tier 3 — Depends on Tier 2
-  SP9: ProsePartner gaps — PassiveVoiceActorGap, SentenceRhythm,
-       ReadabilityGrade, UnsupportedClaim (needs SP4 + SP8)
-  SP7: Rhetoric YAML additions — Terminology.yml, Inclusivity.yml
+  SP9:      ProsePartner gaps — PassiveVoiceActorGap, SentenceRhythm,
+            UnsupportedClaim (Python/spaCy, needs SP4 + SP8) +
+            ReadabilityGrade.yml (Vale YAML, extends: readability, metric: Lexi)
+  SP7:      Rhetoric YAML additions — Terminology.yml, Inclusivity.yml  ✅ done
+  SP_GENRE: 10-genre Diataxis classifier — filename detection, changelog/readme/howto
+            signals, dominant topic_type inference; corpus relabeled; accuracy gate
+            conditional on GENRE_GATE_ENABLED  ✅ done
+
+TODO
+  TabVariantBalance: rule is structural (AST OL-item counting), not NLP — no spaCy dep.
+    After SP8 ships, move it out of the NLP grouping and note in symmetry.py that it
+    requires no language model. The max-min arithmetic stays; only the SP8 label is wrong.
+
+  Docs generation: two-tool hybrid.
+    - pdoc (dev dep) for Python rule modules → docs/api/
+    - `rhetoric-lint docs` CLI subcommand for YAML style rules (styles/*/*.yml)
+      Outputs Markdown in same style as pdoc; grouped by style dir; reads
+      message/level/extends/link from each YAML file.
+    - meta.json required in each styles/* subdir for section headers.
+    - Makefile `docs` target runs both in sequence.
+    - ~14 rule modules need minimal check() docstrings before pdoc is useful:
+      adr, concept, doc_templates, explanation, faq, headings, howto,
+      metric_density, nominalizations, postmortem, preferred_form, reference,
+      syntactic_depth, tone, troubleshooting, tutorial.
+
+  Enterprise platform design — adversarial review findings (2026-06-07)
+  Must resolve before any server/scoring implementation begins:
+
+  ✅ [FATAL F1] FIXED (2026-06-07). `_extract_section_annotations()` runs on raw text
+    before `_blank_html_comments()`; results stored in `context["section_annotations"]`
+    keyed by 1-based heading line number; `sec["annotation"]` and `sec["topic_type"]`
+    override set per-section. Tests in `tests/test_f1_f2_f5.py`.
+
+  ✅ [FATAL F2] FIXED (2026-06-07). `_parse_frontmatter()` runs on raw text before
+    blanking; stored in `context["frontmatter"]`; aliases normalised via
+    `const.FRONTMATTER_ALIASES`. Frontmatter `topic_type` overrides sections[0].
+    Tests in `tests/test_f1_f2_f5.py`.
+
+  ✅ [FATAL F3] RESOLVED-BY-DESIGN (2026-06-08). Root cause was a boundary violation:
+    the linter was re-running Jaccard on job statement tokens against every doc file,
+    duplicating analysis jtbd-tool already performed and recorded in manifest.coverage.
+    Fix: jtbd-tool owns the coverage verdict. The linter trusts manifest.coverage=="missing"
+    and emits one finding per missing job (not per file). No re-tokenization, no re-Jaccard,
+    no CrossFileContext needed. See SP12 rule logic — updated below.
+
+  [MAJOR F4] Density rate model needs minimum word floor.
+    50-word stub with 3 findings = 60/1kw; 5000-word doc with 3 findings = 0.6/1kw.
+    Fix: suppress badge / mark "insufficient sample" below 150 words (suggested threshold).
+
+  ✅ [MAJOR F5] FIXED (2026-06-07). `const.DIMENSION_MAP` added: 5 dimensions (Clarity,
+    Structure, Completeness, Style, Readability) → rule-check prefix lists. All previously
+    unassigned prefixes now mapped. `const.DIMENSION_DEFAULT = "Style"` fallback.
+    Tests in `tests/test_f1_f2_f5.py`.
+
+  [DIMENSION REDESIGN — scheduled for SP_CONFIG] The 5-dimension model has a category
+    error. "Completeness" is retired; "Readability" is absorbed into Clarity. New 5
+    dimensions: Clarity (owns readability), Structure, Style, Form (template/topic-type
+    adherence: HowTo.*, ADR.*, Tutorial.*), Coverage (depth/needs: JTBD, error paths,
+    Resilience.*). `const.DIMENSION_MAP` update is part of SP_CONFIG implementation.
+    Full dimension spec in `plan-the-implementation-moonlit-shell.md`.
+
+  ✅ [MAJOR F6] RESOLVED-BY-DESIGN (2026-06-08). F6 existed because the linter
+    re-implemented jtbd-tool's _tokenize to re-run Jaccard independently. With F3 fixed
+    (linter trusts manifest verdict, no re-tokenization), the linter no longer tokenizes
+    job statement text at all. No shared tokenizer needed; no parity contract needed.
+    The boundary is the manifest: jtbd-tool computes coverage, linter reads the verdict.
+
+  [MAJOR F7] jtbd-reporter integration scope — RESOLVED.
+    jtbd-reporter was early ideation/prototype. jtbd-tool is the planned implementation
+    and sole manifest source. No integration work needed on jtbd-reporter; archive it.
+
+  [MINOR F8] Polling staleness unquantified. For active TechDocs monorepos, daily poll
+    = up to 23-hour stale scores in Backstage plugin. State limitation explicitly in
+    server docs; note webhook-based refresh as planned v2 feature.
+
+  [MINOR F9] Owner field normalization vs Backstage entity references.
+    frontmatter `owner: platform-team` won't match Backstage `group:platform-team`.
+    F2 is now fixed — normalization contract (prefix inference, fallback) still TBD
+    but unblocked. Implement when Backstage plugin design begins.
+
+  [MINOR F10] Server sub-package import constraint unstated.
+    Rule modules must never import server-layer packages (FastAPI, SQLAlchemy) at module
+    level or [server] extra becomes a hard transitive dep for all users. Add to
+    CONTRIBUTING.md when server sub-package is created.
+
+  [CONFIG ARCHITECTURE — resolved 2026-06-08] Two separate config worlds:
+    - Developer local: CLI > project-adjacent .rhetoric-lint.toml > XDG ~/.rhetoric-lint/defaults.toml > built-in defaults
+    - Server reporting: server config is a full takeover — developer local and XDG configs are not consulted for server-side scoring runs
+    These two worlds must never merge at runtime. Server generates .rhetoric-lint.toml for its
+    targets; it does not insert itself as a runtime merge layer for local runs.
+    Full spec in `plan-the-implementation-moonlit-shell.md` (SP_CONFIG).
 
 Backlog — Blocked on CrossFileContext (from SP1)
   SP10: DependencyReveal
@@ -229,7 +336,7 @@ Style-level genre gating via optional `meta.yml` in a style directory:
 genre: howto, tutorial          # all rules in this dir only run on these genres
 ```
 
-Individual rule `genre:` takes precedence over directory-level meta. Genre values match the engine's output: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `faq`, `adr`, `postmortem`, `technical`, `general`. Absent `genre:` field = applies to all genres.
+Individual rule `genre:` takes precedence over directory-level meta. Genre values match the engine's output: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `adr`, `postmortem`, `changelog`, `readme`, `general`. Absent `genre:` field = applies to all genres.
 
 ### Fix support
 
@@ -265,7 +372,7 @@ Vale uses Go printf `%s` / `%[1]s`. Map to Python `%s` by substituting `%[N]s` �
 - Existence `scope: paragraph`: does NOT fire on identical token inside a fenced code block
 - Existence `scope: paragraph`: does NOT fire on token inside an inline code span (`` `just` ``)
 - Existence `scope: prose`: does NOT fire on token that is the href of a link
-- `genre: howto`: fires on howto document, suppressed on technical document
+- `genre: howto`: fires on howto document, suppressed on general document
 - `genre: tutorial, howto`: fires on both, suppressed on adr
 - Rule without `genre:` field: fires on all genres
 - Style with `meta.yml genre: howto`: entire style skipped on non-howto document
@@ -715,7 +822,7 @@ Content tabs (`=== "Tab"` blocks) rewritten to blockquotes by the engine preproc
 - Count ordered list items (`nodes` with `list_type == "ol"`) per tab variant.
 - If `max(step_count) - min(step_count) > TAB_VARIANT_STEP_TOLERANCE` across ≥ 2 variants → `warning`.
 - Skip sections where all tab variants contain only code blocks (reference-style tabs).
-- `GENRES = frozenset({"technical", "general"})`
+- `GENRES = frozenset({"howto", "tutorial", "concept", "explanation", "reference", "general"})`
 
 **False positive controls:**
 
@@ -758,7 +865,9 @@ python -m pytest tests/ -v
 
 ## SP9 — ProsePartner Gaps
 
-**Goal:** Four new Python rules closing gaps identified in ProsePartner comparison analysis. All depend on SP8's infrastructure patterns. Independent of SP2–SP7.
+**Goal:** Three new Python rules + one Vale YAML rule closing gaps identified in ProsePartner comparison analysis. All depend on SP8's infrastructure patterns. Independent of SP2–SP7.
+
+**ReadabilityGrade is implemented as Vale YAML** (`style-sets/Rhetoric/ReadabilityGrade.yml`, `extends: readability`, `metric: Lexi`) rather than a Python rule. The Lexi composite score is already implemented in `_readability.py` and the `readability` rule type is already supported by SP4. The YAML approach is preferable: threshold is user-configurable, genre gating is via the YAML `genre:` field, and no Python module is needed.
 
 ### 1. `rules/passive_voice.py` → `Rhetoric.PassiveVoiceActorGap`
 
@@ -767,13 +876,13 @@ Not duplicate of write-good's `Passive.yml` (which flags all passive). This flag
 - Detect passive: `token.dep_ in ("nsubjpass", "auxpass")` OR `token.dep_ == "aux"` AND POS tag `VBN`/`VBD` following `be`-form.
 - Flag only when no `by`-agent (`prep` with `pobj` where prep lemma == "by") exists in the same clause.
 - Genre gate: higher severity in howto/tutorial genres (`"error"`); `"suggestion"` elsewhere.
-- Suppress: passive constructions where the actor is genuinely unknown/irrelevant (e.g., "it was observed that" in scientific/technical genres).
+- Suppress: passive constructions where the actor is genuinely unknown/irrelevant (e.g., "it was observed that" in concept/explanation genres).
 
 **Edge case tests:**
 - `"The file is created."` → finding (no actor)
 - `"The file is created by the installer."` → no finding (actor present)
 - `"Errors were logged."` in postmortem → finding
-- `"It was shown that..."` in technical genre → suggestion (not error)
+- `"It was shown that..."` in concept/explanation genre → suggestion (not error)
 - Active sentence `"The installer creates the file."` → no finding
 - Sentence with no verb → no finding
 
@@ -799,72 +908,25 @@ LongSentence and WallOfText exist but don't track pacing. CV of sentence lengths
 
 **const.py:** `SENTENCE_RHYTHM_CV_MAX = 0.8`, `SENTENCE_RHYTHM_SPIKE_RATIO = 4.0`, `SENTENCE_RHYTHM_MIN_SENTENCES = 4`
 
-### 3. `rules/readability.py` → `Attention.ReadabilityGrade`
+### 3. `style-sets/Rhetoric/ReadabilityGrade.yml` → `Rhetoric.ReadabilityGrade`
 
-Section-level readability with genre awareness, using the **lexi composite formula** (Rebilly) for the 0–100 score and Vale-compatible individual grade metrics for thresholds.
+**Supersedes the Python rule approach.** Implemented as a Vale YAML rule using the `extends: readability` type (SP4) with `metric: Lexi`. The Lexi composite score is already in `_readability.py`; no new Python module needed. Threshold is user-configurable via YAML override in `.rhetoric-lint.yaml`.
 
-**Uses `rhetoric_lint/runners/_readability.py::preprocess_for_readability()`** — the same preprocessing shared with the Vale `readability` rule type. This guarantees consistent scores across both rule systems for the same text.
-
-#### Composite formula (from lexi)
-
-```python
-METRIC_RANGES = {
-    "flesch_reading_ease":          {"min": 0,    "max": 100},   # higher = easier
-    "gunning_fog":                  {"min": 19,   "max": 6},     # lower = easier (inverted)
-    "automated_readability_index":  {"min": 22,   "max": 6},     # lower = easier (inverted)
-    "dale_chall_readability_score": {"min": 11,   "max": 4.9},   # lower = easier (inverted)
-    "coleman_liau_index":           {"min": 19,   "max": 6},     # lower = easier (inverted)
-}
-
-WEIGHTS = {
-    "flesch_reading_ease":          0.1653977378,
-    "gunning_fog":                  0.2228367277,
-    "automated_readability_index":  0.2325290236,
-    "dale_chall_readability_score": 0.1960641698,
-    "coleman_liau_index":           0.1831723411,
-}
-
-def _composite(text: str) -> float:
-    raw = {
-        "flesch_reading_ease":          textstat.flesch_reading_ease(text),
-        "gunning_fog":                  textstat.gunning_fog(text),
-        "automated_readability_index":  textstat.automated_readability_index(text),
-        "dale_chall_readability_score": textstat.dale_chall_readability_score(text),
-        "coleman_liau_index":           textstat.coleman_liau_index(text) or 0,
-    }
-    # Cap each score to its range
-    capped = {k: _cap(v, METRIC_RANGES[k]["min"], METRIC_RANGES[k]["max"]) for k, v in raw.items()}
-    # Normalize 0→1 (ranges may be inverted — capBetween handles sign)
-    normed = {k: (capped[k] - mn) / (mx - mn)
-              for k, (mn, mx) in {k: (min(r["min"],r["max"]), max(r["min"],r["max"]))
-                                   for k,r in METRIC_RANGES.items()}.items()}
-    return 100 * sum(normed[k] * WEIGHTS[k] for k in WEIGHTS)
+```yaml
+extends: readability
+message: "Readability score is low (%s) — consider simplifying sentences or vocabulary."
+level: warning
+scope: paragraph
+metric: Lexi
+max: 65
 ```
 
-Composite 0–100: higher = more readable (same direction as Flesch Reading Ease).
+Score 0–100 (100 = most readable). Paragraphs scoring below `max` fire. Genre gating via the `genre:` field if needed.
 
-#### Genre-aware thresholds (FK Grade for threshold; composite reported in message)
-
-| Genre | FK Grade threshold | Severity |
-|---|---|---|
-| `howto`, `tutorial` | > `READABILITY_TUTORIAL_FK_MAX` (12) | warning |
-| `technical`, `general` | > `READABILITY_TECHNICAL_FK_MAX` (16) | suggestion |
-| `concept`, `explanation` | > `READABILITY_TECHNICAL_FK_MAX` (16) | suggestion |
-| `adr`, `postmortem` | exempt | — |
-| `reference` | exempt | — |
-
-One finding per section; message includes: FK grade, composite score (0–100), and top-contributing metric.
-
-**Edge case tests:**
-- Tutorial section FK=8, composite=72 → no finding
-- Tutorial section FK=14, composite=45 → finding with composite in message
-- ADR section FK=20 → no finding (genre exempt)
-- Section with < `READABILITY_MIN_SENTENCES` (3) → no finding
-- Empty text → no finding
-- `textstat` import fails → rule disabled with one-time warning
-- **Consistency:** same section text passed to Vale `readability` rule and to this rule → FK grades match within ±0.5 (documents expected delta from `twine` syllable counter)
-
-**const.py:** `READABILITY_TUTORIAL_FK_MAX = 12`, `READABILITY_TECHNICAL_FK_MAX = 16`, `READABILITY_MIN_SENTENCES = 3`
+**Tests** (in `test_rhetoric_yaml.py`):
+- Low-readability paragraph → `Rhetoric.ReadabilityGrade` fires
+- High-readability paragraph → no finding
+- `textstat` absent → no crash (runner skips metric silently)
 
 ### 4. `rules/unsupported_claim.py` → `Completeness.UnsupportedClaim`
 
@@ -888,7 +950,7 @@ as a result, consequently, it follows that
 - Per paragraph in concept/explanation sections, scan sentences for assertion signals.
 - If found, look ahead 2 sentences in the same paragraph + the immediately following block.
 - If no evidence signal found → finding at the assertion sentence.
-- Genre gate: only fires in `concept`, `explanation`, `technical` genres.
+- Genre gate: only fires in `concept`, `explanation` genres.
 
 **Edge case tests:**
 - `"Therefore, X. For example, Y."` → no finding (evidence present)
@@ -906,8 +968,8 @@ as a result, consequently, it follows that
 **Create:**
 - `rhetoric_lint/rules/passive_voice.py`
 - `rhetoric_lint/rules/sentence_rhythm.py`
-- `rhetoric_lint/rules/readability.py` — imports `rhetoric_lint.runners._readability.composite_score` and `preprocess_for_readability`
 - `rhetoric_lint/rules/unsupported_claim.py`
+- `style-sets/Rhetoric/ReadabilityGrade.yml` — `extends: readability`, `metric: Lexi`, `max: 65`, `level: warning`, `scope: paragraph`
 - `tests/test_prose_partner_gaps.py`
 
 **Modify:**
@@ -1092,7 +1154,7 @@ CONTRAST_RESOLUTION_SIGNALS = [
 2. Skip if `len(sentences) < CONTRAST_MIN_SENTENCES` (default 3).
 3. For each sentence with contrast signal at position < 30% of sentence length: check rest of sentence + next sentence for resolution signal; no resolution → emit finding at contrast sentence's line.
 4. Cap at `CONTRAST_UNRESOLVED_MAX_PER_PARA` (default 2) per paragraph.
-5. Genre gate: fires only in `concept`, `explanation`, `technical`, `general`. Skip `howto`, `tutorial`, `adr`, `reference`, `postmortem`.
+5. Genre gate: fires only in `concept`, `explanation`, `general`. Skip `howto`, `tutorial`, `adr`, `reference`, `postmortem`.
 
 ### `const.py` additions
 ```python
@@ -1129,6 +1191,261 @@ CONTRAST_MIN_SENTENCES = 3
 python -m pytest tests/test_rhetoric_new_rules.py -v -k contrast
 python -m pytest tests/ -v
 rhetoric-lint --rules Rhetoric.UnresolvedContrast --format text tests/fixtures/test_generic.md
+```
+
+---
+
+## SP_VCS — `Coverage.DocCodeDrift` (git diff → Jaccard)
+
+**Status:** Backlog  
+**Depends on:** SP12 (manifest-consuming pattern in Coverage dimension)  
+**Scope:** Local dev tool. Not a server feature. No LLM, no embeddings, no new heavy deps.
+
+### Problem
+
+JTBD analysis catches strategic gaps: "job X has no doc at all." It cannot catch **drift**: "docs existed but went stale when the code changed." A JTBD audit of a stable product looks healthy; a VCS audit of the same product after a release surfaces freshness failures JTBD never sees. The two signals are complementary.
+
+### Design: two-step, manifest-consuming
+
+The linter is a pure function (text in → findings out). Git access cannot happen inside a rule. The pattern is identical to SP12:
+
+```
+rhetoric-lint vcs-manifest --since v1.2.0 > .rhetoric-vcs.json   # preprocessor
+rhetoric-lint --vcs-manifest .rhetoric-vcs.json docs/             # rule consumes manifest
+```
+
+The preprocessor step (`vcs-manifest`) runs outside the pure function, produces a JSON manifest, and the `Coverage.DocCodeDrift` rule consumes it via Jaccard — the same `overlap.py::set_overlap_metrics()` path that SP12 uses.
+
+### `rhetoric-lint vcs-manifest` — preprocessor subcommand
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--since REF` | last git tag (`git describe --tags --abbrev=0`) | Commit ref to start from (tag, SHA, branch) |
+| `--repo PATH` | `.` | Path to the git repo |
+| `--output PATH` | stdout | Write manifest JSON here instead of stdout |
+| `--user-facing-types` | `feat,fix,perf` | Comma-separated conventional commit types to include |
+| `--include-breaking` | always | `BREAKING CHANGE` footer or `!` suffix always included regardless of type filter |
+
+**Algorithm:**
+
+1. `git log <since>..HEAD --pretty=format:"%H %s" --name-only` to collect commits + changed file paths.
+2. Per commit, parse the subject line for Conventional Commits format:
+   - Pattern: `^(?P<type>\w+)(\((?P<scope>[^)]+)\))?(?P<breaking>!)?: (?P<summary>.+)`
+   - Detect `BREAKING CHANGE:` in commit body/footer as well.
+   - `is_user_facing = type in user_facing_types OR breaking`
+3. Skip commits where `is_user_facing == False`.
+4. For each surviving commit, collect added lines from `git diff <commit>^..<commit> -- '*.py' '*.ts' '*.go' '*.java' '*.rb'` (configurable extension list; docs files excluded by default).
+5. Tokenize added lines: lowercase, extract `\b[a-z_][a-z0-9_]{2,}\b` identifiers (same regex family as `_tokenize` in jtbd-tool), minus a stopword list (`const.VCS_STOPWORDS`). Remove single-char tokens and very common programming keywords (`def`, `return`, `import`, `class`, `const`, `var`, `let`, `for`, `if`, `else`, `true`, `false`, `null`).
+6. Deduplicate tokens within a commit scope (same scope may appear in multiple files — merge token sets).
+7. Emit manifest JSON.
+
+**Manifest format:**
+
+```json
+{
+  "version": 1,
+  "generated_at": "2026-06-08T14:00:00Z",
+  "since_ref": "v1.2.0",
+  "repo": "/path/to/repo",
+  "changes": [
+    {
+      "id": "abc123",
+      "type": "feat",
+      "scope": "auth",
+      "breaking": false,
+      "is_user_facing": true,
+      "summary": "add OAuth2 support",
+      "tokens": ["oauth2", "authenticate", "token", "refresh", "client_id", "pkce"]
+    },
+    {
+      "id": "def456",
+      "type": "fix",
+      "scope": null,
+      "breaking": false,
+      "is_user_facing": true,
+      "summary": "handle null response from deploy endpoint",
+      "tokens": ["deploy", "endpoint", "response", "null", "handle", "status"]
+    }
+  ]
+}
+```
+
+Fields rhetor-linter reads: `changes[].id`, `.summary`, `.scope`, `.breaking`, `.is_user_facing`, `.tokens`.
+
+**Fallback when no conventional commits:** If fewer than 30% of commits in range match the Conventional Commits pattern, emit a `meta` warning in the manifest and use commit subject tokens directly (tokenize the summary string). This degrades gracefully on repos without commit discipline.
+
+### `Coverage.DocCodeDrift` rule
+
+**File:** `rhetoric_lint/rules/vcs_coverage.py`
+
+**`const.py` additions:**
+
+```python
+VCS_MANIFEST_PATH: str = ""              # path to .rhetoric-vcs.json; empty = rule disabled
+VCS_COVERAGE_JACCARD_MIN: float = 0.25  # lower than JTBD (0.30) — diff tokens are noisier
+VCS_STOPWORDS: set = {                   # programming keywords to strip from diff tokens
+    "def", "return", "import", "class", "const", "var", "let",
+    "for", "if", "else", "elif", "true", "false", "null", "none",
+    "self", "this", "new", "type", "str", "int", "bool", "list",
+    "dict", "any", "none", "raise", "pass", "yield", "async", "await",
+}
+```
+
+**CLI flag:** `--vcs-manifest PATH` → sets `const.VCS_MANIFEST_PATH`
+
+**Severity mapping:**
+
+| Change type | `breaking` | Severity |
+|---|---|---|
+| `feat` | false | `warning` |
+| `fix` | false | `suggestion` |
+| any | true | `error` |
+
+Rationale: breaking changes have the highest obligation to be documented; new features are warnings; fixes are suggestions because the doc may remain accurate even if behavior changed slightly.
+
+**Rule logic (mirrors SP12):**
+
+```python
+def check(context: dict) -> list[dict]:
+    manifest_path = context["const"].VCS_MANIFEST_PATH
+    if not manifest_path:
+        return []
+    manifest = context.get("vcs_manifest")
+    if not manifest:
+        return []
+
+    threshold = context["const"].VCS_COVERAGE_JACCARD_MIN
+    findings = []
+    for change in manifest.get("changes", []):
+        if not change.get("is_user_facing"):
+            continue
+        change_tokens = set(change.get("tokens", []))
+        if not change_tokens:
+            continue
+
+        best = 0.0
+        for section in context["sections"]:
+            for para in section.get("paragraphs", []):
+                para_tokens = _tokenize(para["text"])
+                score = set_overlap_metrics(change_tokens, para_tokens)["jaccard"]
+                best = max(best, score)
+
+        if best < threshold:
+            severity = "error" if change.get("breaking") else (
+                "warning" if change.get("type") == "feat" else "suggestion"
+            )
+            scope_str = f" ({change['scope']})" if change.get("scope") else ""
+            findings.append({
+                "path":    context["path"],
+                "line":    1,
+                "column":  0,
+                "check":   "Coverage.DocCodeDrift",
+                "severity": severity,
+                "message": (
+                    f"{change['type']}{scope_str}: \"{change['summary']}\" "
+                    f"has no documentation coverage (best Jaccard: {best:.3f} < {threshold}). "
+                    f"Commit: {change['id'][:8]}"
+                ),
+            })
+    return findings
+```
+
+`_tokenize` here tokenizes doc paragraph prose (not code identifiers). Factor into `rhetoric_lint/rules/_tokenize.py` if a second rule needs the same prose tokenizer — `jtbd_coverage.py` no longer tokenizes anything, so this utility is SP_VCS-specific until another rule needs it.
+
+### How the two rules compose
+
+The two Coverage rules complement each other:
+
+| Rule | Signal source | What it catches |
+|---|---|---|
+| `Coverage.MissingJobCoverage` | JTBD manifest (intent-driven) | Strategic gaps: user jobs with no doc |
+| `Coverage.DocCodeDrift` | VCS manifest (history-driven) | Freshness gaps: code changed, doc not updated |
+
+Both live in the Coverage dimension. A doc that passes JTBD can still fail VCS drift, and vice versa.
+
+### Comparison to prior art
+
+Two tools share the "DocDrift" name; both were evaluated.
+
+Three tools were evaluated:
+
+**`cameronking4/docdrift`** (`@devinnn/docdrift`, TypeScript) — post-merge CI tool. Compares machine-exported API specs (OpenAPI, GraphQL, Swagger, Fern, Postman) against the published spec JSON; when structural drift is detected it opens a Devin AI session to write the fix and raise a PR. Path heuristics (`src/api/**` → `docs/api/`) are its only mechanism for non-spec content. Requires spec-generatable codebases; not applicable to general Markdown docs. One useful concept: **baseline tracking** — comparing against a known-good commit rather than the previous commit. SP_VCS's `--since REF` flag serves the same purpose.
+
+**`ayush698800/docwatcher`** (`docdrift` on PyPI, Python) — pre-commit tool. Tree-sitter AST extraction on staged diffs identifies changed functions/classes; ChromaDB + `all-MiniLM-L6-v2` embeddings find related doc sections; an LLM (Groq or local Ollama) renders a consistency verdict. Closest to SP_VCS in workflow (local, pre-push). Diverges on detection mechanism and dependency weight.
+
+**`mahimathacker/driftguard`** (`@driftguardjs/cli`, TypeScript) — snapshot-based CI gate for Web3/blockchain projects. No AI. Three deterministic layers: (1) Solidity ABI diffs via `@solidity-parser/parser` + Foundry/Hardhat artifacts, (2) TypeScript SDK export diffs via `ts-morph` (TS Compiler API), (3) **doc snippet compilation** — extracts fenced code blocks from Markdown/MDX via `remark-mdx`, creates a virtual TypeScript project with path-mapped package resolution, and runs `getPreEmitDiagnostics()` on each snippet. A snippet that no longer compiles is "stale." Deterministic, zero false positives. Applicable to typed languages only; not applicable to general prose documentation. One useful concept: **committed baseline snapshot** (`.driftguard/snapshot.json`) as an explicit approval artifact rather than implicit "last tag." An alternative to `--since REF` worth considering for a v2 flag (`--baseline-snapshot PATH`).
+
+SP_VCS comparison:
+
+| Aspect | DocWatcher | DriftGuard | SP_VCS |
+|---|---|---|---|
+| Signal | Git staged diff → AST | Snapshot diff (ABI + TS exports + snippets) | Git log since ref → conventional commit tokens |
+| Code extraction | Tree-sitter AST | ts-morph + ABI parser | Diff addition lines (identifiers only) |
+| Doc matching | Embeddings (ChromaDB) | TS compiler diagnostics | Jaccard (`overlap.py`) |
+| AI required | Yes (Groq/Ollama) | No | No |
+| Scope | Python/JS/TS symbols | Web3 typed contracts + SDK | Any language, commit-scoped |
+| User-facing filter | All changed symbols | All ABI/export changes | Conventional commit type filter |
+| New deps | chromadb, sentence-transformers, tree-sitter, gitpython | ts-morph, solc, ethers | gitpython only |
+| False positives | ~15–25% (LLM) | ~0% (compiler) | Low (token threshold) |
+| Fix suggestion | LLM-generated | None | None |
+| Cost | $0.50–$2/run | Free | Free |
+
+SP_VCS occupies the "free, offline, low-friction" position. DocWatcher catches more nuanced semantic drift at LLM cost; DriftGuard is zero-noise but only for typed-language snippet docs in Web3 stacks.
+
+### Pre-commit integration
+
+Add to `.pre-commit-hooks.yaml` (SP_CI already ships the hook infrastructure):
+
+```yaml
+- id: rhetoric-lint-vcs
+  name: rhetoric-lint doc drift
+  language: python
+  entry: bash -c 'rhetoric-lint vcs-manifest --since HEAD~1 > .rhetoric-vcs.json && rhetoric-lint --vcs-manifest .rhetoric-vcs.json docs/'
+  pass_filenames: false
+  stages: [pre-push]          # pre-push (not pre-commit): needs committed history
+```
+
+`pre-push` rather than `pre-commit` because `vcs-manifest` reads committed history; the working-tree changes are not yet committed at pre-commit stage.
+
+### Files
+
+**Create:**
+- `rhetoric_lint/rules/vcs_coverage.py` — `check(context)` + `_tokenize` (or import from shared util)
+- `rhetoric_lint/rules/_tokenize.py` — shared `_tokenize()` utility (factors out of `jtbd_coverage.py` too)
+- `tests/test_vcs_coverage.py`
+
+**Modify:**
+- `rhetoric_lint/main.py` — add `vcs-manifest` subcommand; add `--vcs-manifest PATH` flag to `check` command
+- `rhetoric_lint/engine.py` — load VCS manifest into `context["vcs_manifest"]` if `VCS_MANIFEST_PATH` set
+- `rhetoric_lint/const.py` — `VCS_MANIFEST_PATH`, `VCS_COVERAGE_JACCARD_MIN`, `VCS_STOPWORDS`
+- `rhetoric_lint/rules/jtbd_coverage.py` — remove `_tokenize`, `set_overlap_metrics` import, and per-file Jaccard loop; trust manifest `coverage` verdict directly
+- `.pre-commit-hooks.yaml` — add `rhetoric-lint-vcs` hook
+- `README.md` — add `Coverage.DocCodeDrift` to rules table
+
+### Tests (`tests/test_vcs_coverage.py`)
+
+- **Must-fire (feat, no doc coverage):** manifest with one `feat` change; doc fixture with unrelated text → `warning` at line 1.
+- **Must-fire (breaking, no doc coverage):** `breaking: true` change → `error` severity.
+- **Must-fire (fix, no doc coverage):** `fix` type → `suggestion` severity.
+- **Must-not-fire (coverage present):** change tokens overlap sufficiently with doc paragraph → no finding.
+- **Must-not-fire (is_user_facing false):** `chore` type change → no finding even with no doc coverage.
+- **Must-not-fire (empty tokens):** change with no tokens after stopword filtering → no finding.
+- **Must-not-fire (no manifest):** `VCS_MANIFEST_PATH = ""` → no finding, no crash.
+- **Must-not-fire (corpus):** full engine against `tests/fixtures/corpus/technical/` with a synthetic manifest of low-noise tokens that do appear in the fixture text → zero findings (confirms threshold tuning).
+- **`vcs-manifest` subcommand:** against a temp git repo with one conventional commit → manifest JSON valid, `changes` length > 0.
+- **`vcs-manifest --since` with non-tag ref (SHA):** works without crash.
+- **`vcs-manifest` fallback (no conventional commits):** manifest includes `meta.fallback: true`, changes have tokens from subject lines.
+- **`_tokenize` shared util:** same output as the inline version previously in `jtbd_coverage.py`.
+
+### Verification
+
+```bash
+rhetoric-lint vcs-manifest --since v1.0.0 --output .rhetoric-vcs.json
+rhetoric-lint --vcs-manifest .rhetoric-vcs.json docs/
+python -m pytest tests/test_vcs_coverage.py -v
+python -m pytest tests/ -v
 ```
 
 ---
@@ -1203,3 +1520,155 @@ Detect nested ordered lists (ordered list item whose `nodes` contain a child ord
 - Interface Surface Coverage (CLI flags in code blocks → prose explanation)
 - Procedural State Machine (nested ordered list sub-procedure validation)
 - Retrieval Anchor Density
+
+---
+
+## SP12: JTBD Coverage Integration
+
+**Status**: Planned — blocked on jtbd-tool Tier 3 (stable API at `localhost:8080`)  
+**Depends on**: SP1 (`CrossFileContext`); jtbd-tool producing a `jtbd-manifest.json`
+
+### New rule: `Coverage.MissingJobCoverage`
+
+File: `rhetoric_lint/rules/jtbd_coverage.py`
+
+Rule fires a `warning` finding for each job in the manifest where `coverage == "missing"`. jtbd-tool owns the coverage determination; the linter trusts the manifest verdict and emits one finding per missing job. The linter does **not** re-run Jaccard on job statement text — that is jtbd-tool's analysis, already recorded in the manifest.
+
+**Boundary:** jtbd-tool computes coverage (tokenizes job statements, tokenizes doc paragraphs, computes Jaccard, writes verdict). The manifest is the interface. The linter reads the verdict.
+
+#### Engine integration
+
+- New `const.py` additions:
+  ```python
+  JTBD_MANIFEST_PATH: str = ""   # path to jtbd-manifest.json; empty = rule disabled
+  ```
+- New CLI flag: `--jtbd-manifest <path>` → sets `const.JTBD_MANIFEST_PATH`
+- Engine `main.py`: if `JTBD_MANIFEST_PATH` is set, load manifest JSON into `context["jtbd_manifest"]`; load once per engine run, not per file.
+
+#### Rule logic
+
+```python
+def check(context: dict) -> list[dict]:
+    # Only fire on the first file processed — one finding per missing job, not one per file.
+    # Engine sets context["is_first_file"] = True for the first path in the scan.
+    if not context.get("is_first_file"):
+        return []
+    manifest = context.get("jtbd_manifest")
+    if not manifest:
+        return []
+
+    findings = []
+    for job in manifest.get("jobs", []):
+        if job.get("coverage") != "missing":
+            continue
+        findings.append({
+            "path":     manifest.get("source_path", context["const"].JTBD_MANIFEST_PATH),
+            "line":     1,
+            "column":   0,
+            "check":    "Coverage.MissingJobCoverage",
+            "severity": "warning",
+            "message":  (
+                f"Job '{job['statement_text']}' ({job.get('job_map_step', '')}) "
+                f"has no documentation coverage. "
+                f"SWEBOK ref: {job.get('swebok_ref', '')}  "
+                f"(Jaccard: {job.get('jaccard_score', 0):.3f})"
+            ),
+        })
+    return findings
+```
+
+No `_tokenize`, no `set_overlap_metrics`, no Jaccard in this rule. The `jaccard_score` in the message is read from the manifest field jtbd-tool wrote — it is informational only.
+
+#### `const.py` severity/description entries
+
+```python
+RULE_SEVERITY_LEVELS["Coverage.MissingJobCoverage"] = "warning"
+RULE_DESCRIPTIONS["Coverage.MissingJobCoverage"] = (
+    "A JTBD job detected by jtbd-tool has no documentation coverage in this file."
+)
+```
+
+#### Tests: `tests/test_jtbd_coverage.py`
+
+- **Must-fire**: synthetic manifest with one `coverage=missing` job; `is_first_file=True` → assert one finding emitted with correct message.
+- **Must-not-fire (coverage present)**: manifest job with `coverage=covered` → assert no finding.
+- **Must-not-fire (coverage partial)**: manifest job with `coverage=partial` → assert no finding (partial is not a gap).
+- **Must-not-fire (no manifest)**: `JTBD_MANIFEST_PATH = ""` → assert no finding.
+- **Must-not-fire (not first file)**: `is_first_file=False` → assert no finding (prevents N×M emission).
+- **One finding per job, not per file**: manifest with 3 missing jobs, engine run against 10 files → assert exactly 3 findings total.
+- **path is manifest path, not doc path**: finding `path` field equals the manifest path, not any scanned doc file.
+
+#### Manifest loading
+
+Load once per engine run, not per file. In `engine.py`:
+
+```python
+if const.JTBD_MANIFEST_PATH:
+    import json
+    with open(const.JTBD_MANIFEST_PATH) as f:
+        context["jtbd_manifest"] = json.load(f)
+```
+
+#### Exchange format contract (jtbd-tool ↔ rhetor-linter)
+
+The only manifest fields rhetor-linter reads:
+- `jobs[].id`
+- `jobs[].statement_text`
+- `jobs[].job_map_step`
+- `jobs[].swebok_ref`
+- `jobs[].coverage`  (`"missing"` | `"partial"` | `"covered"` | `"unknown"`)
+
+Schema version is in `manifest.version`. If the file is missing or invalid JSON, the rule returns `[]` silently — never raises.
+
+---
+
+## Infrastructure Gates
+
+Gates are triggered by conditions, not dates. No new git repos are created until Gate 2 fires.
+
+### Gate 1 — Scaffold (trigger: Phase 0 complete)
+
+Triggered when a component's Phase 0 is complete enough to start writing code in its target location. For each component the plan defines: what directories to create, what CLAUDE.md to write, what goes in pyproject.toml / package.json skeleton.
+
+This is just `mkdir` + stub files inside the existing repo — no new git repos yet.
+
+**Deliverables (✅ complete 2026-06-07):**
+- `rhetoric_lint/server/` — stub `__init__.py` + `CLAUDE.md` (import constraint documented)
+- `rhetoric_lint/score.py` — `ScoreResult` dataclass + `score_file()` boundary function (server calls this only)
+- `rhetoric_lint/metadata.py` — `normalise_topic_type()`, `normalise_owner()`, `normalise_frontmatter()` skeletons
+- `const.SCORE_MIN_WORDS = 150` — F4 scoring floor
+
+**Remaining Phase 0 items (open):**
+- F8: Document polling staleness as known limitation (CONTRIBUTING.md note)
+- F9: `normalise_owner()` wired into engine F2 path (metadata.py exists; engine call not yet added)
+- F10: Server import constraint noted in CONTRIBUTING.md
+
+### Gate 2 — Repo creation (trigger: graduation condition)
+
+Graduation condition — any one of:
+- Server needs a different deploy cadence or version than the linter
+- A second analysis backend is added
+- A dedicated contributor works server-only
+
+Until the condition fires, `rhetoric_lint/server/` stays inside the linter repo. When it fires, the plan specifies a `git subtree split` or extract sequence.
+
+**Other Gate 2 repo creations:**
+- `jtbd-tool` repo: create when `jtbd-tool scan` returns valid manifest JSON (near-term trigger)
+- `backstage-shela-plugin` repo: create at Phase 4 start — TypeScript, separate cadence from day one
+
+### Gate 3 — Org creation (trigger: ≥2 repos ready for public release)
+
+Triggered by: two or more repos ready for public release under a shared brand. This is the last step, not the first.
+
+**Chosen org name: Chancery Labs (`chancery-labs`)**
+
+Component names under the org:
+
+| Component | Name | Role |
+|---|---|---|
+| Org | `chancery-labs` | Document authentication and transmission — medieval chancery metaphor |
+| Linter | `shela` | she'ela — the question/inquiry put to the text |
+| Server | `syla` | Transmits the findings |
+| Auditor | `laxa` | From halaxa — the normative path |
+
+Action at Gate 3: create GitHub org, transfer repos, update CI config and install paths in docs.

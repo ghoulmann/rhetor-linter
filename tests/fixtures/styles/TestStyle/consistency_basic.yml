@@ -1,0 +1,7 @@
+extends: consistency
+message: "Inconsistent spelling: '%s'."
+level: warning
+scope: paragraph
+either:
+  colour: color
+ignorecase: true

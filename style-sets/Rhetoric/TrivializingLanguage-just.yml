@@ -1,0 +1,25 @@
+extends: existence
+message: "Trivializing language: 'just' implies this is easy. Consider removing."
+level: suggestion
+scope: paragraph
+ignorecase: true
+nonword: false
+tokens:
+  - just
+exceptions:
+  - just released
+  - just updated
+  - just published
+  - just merged
+  - just deployed
+  - just added
+  - just fixed
+  - just changed
+  - just created
+  - just removed
+  - just now
+  - have just
+  - has just
+  - had just
+  - was just
+  - were just

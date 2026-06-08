@@ -13,9 +13,9 @@ from rhetoric_lint.genre import classify_genre
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _classify(md: str, tmp_path, genre_override=None):
+def _classify(md: str, tmp_path, genre_override=None, filename="doc.md"):
     """Run the engine on *md* and return (genre, issues)."""
-    p = tmp_path / "doc.md"
+    p = tmp_path / filename
     p.write_text(md, encoding="utf-8")
     eng = RhetoricEngine()
     issues = eng.lint_files([str(p)], genre_override=genre_override)
@@ -23,45 +23,173 @@ def _classify(md: str, tmp_path, genre_override=None):
     return genre, issues
 
 
-# ---------------------------------------------------------------------------
-# Classifier unit tests (classify_genre called directly)
-# ---------------------------------------------------------------------------
-
-def test_classifies_technical_by_code_fence_density(tmp_path):
-    md = """\
-# Deploy Service
-
-## Install
-
-Install the package.
-
-```bash
-pip install mypackage
-```
-
-```bash
-mypackage deploy --env prod
-```
-
-## Configure
-
-```yaml
-service:
-  name: myapp
-```
-"""
-    p = tmp_path / "doc.md"
-    p.write_text(md, encoding="utf-8")
+def _sections_doc(md: str):
     eng = RhetoricEngine()
     sections = eng._parse_with_mistletoe(md)
-    import spacy
-    nlp = eng.nlp
-    doc = nlp(md)
+    doc = eng.nlp(md)
+    return sections, doc, eng
+
+
+# ---------------------------------------------------------------------------
+# Filename-based genre detection
+# ---------------------------------------------------------------------------
+
+def test_readme_detected_by_filename(tmp_path):
+    md = "# myproject\n\nA useful tool.\n"
+    genre, _ = _classify(md, tmp_path, filename="README.md")
+    assert genre == "readme"
+
+
+def test_changelog_detected_by_filename(tmp_path):
+    md = "# Changelog\n\n## [1.0.0]\n\n### Added\n\n- Initial release.\n"
+    genre, _ = _classify(md, tmp_path, filename="CHANGELOG.md")
+    assert genre == "changelog"
+
+
+def test_contributing_detected_as_howto(tmp_path):
+    md = "# Contributing\n\nFork the repo.\n\nRun the tests.\n"
+    genre, _ = _classify(md, tmp_path, filename="CONTRIBUTING.md")
+    assert genre == "howto"
+
+
+def test_history_detected_as_changelog(tmp_path):
+    md = "# History\n\n## v2.0.0\n\nBig rewrite.\n"
+    genre, _ = _classify(md, tmp_path, filename="HISTORY.md")
+    assert genre == "changelog"
+
+
+# ---------------------------------------------------------------------------
+# Changelog structural detection (content-based, non-README filenames)
+# ---------------------------------------------------------------------------
+
+def test_changelog_detected_by_version_headings(tmp_path):
+    md = """\
+# Project Changelog
+
+## [2.1.0]
+
+### Added
+
+- New feature A.
+- New feature B.
+
+## [2.0.0]
+
+### Fixed
+
+- Fixed critical bug.
+
+## [1.0.0]
+
+### Changed
+
+- Initial stable release.
+"""
+    sections, doc, eng = _sections_doc(md)
     genre = classify_genre(sections, doc, md, const)
-    assert genre == "technical"
+    assert genre == "changelog"
 
 
-def test_classifies_scientific_by_imrad_headings(tmp_path):
+def test_changelog_detected_by_semver_headings(tmp_path):
+    md = """\
+# Releases
+
+## v1.2.3
+
+Bug fixes.
+
+## v1.2.0
+
+New feature.
+"""
+    sections, doc, eng = _sections_doc(md)
+    genre = classify_genre(sections, doc, md, const)
+    assert genre == "changelog"
+
+
+# ---------------------------------------------------------------------------
+# ADR and postmortem (unchanged behavior)
+# ---------------------------------------------------------------------------
+
+def test_classifies_adr(tmp_path):
+    md = """\
+# Use PostgreSQL for Primary Storage
+
+Status: Accepted
+
+## Context
+
+We need a relational database.
+
+## Decision
+
+We will use PostgreSQL.
+
+## Consequences
+
+Operational team must manage backups.
+"""
+    sections, doc, eng = _sections_doc(md)
+    genre = classify_genre(sections, doc, md, const)
+    assert genre == "adr"
+
+
+def test_classifies_postmortem(tmp_path):
+    md = """\
+# Service Outage 2024-03-15
+
+## Summary
+
+The payment service was down for 45 minutes.
+
+## Timeline
+
+Events leading to the incident.
+
+## Root Cause
+
+A misconfigured load balancer rule.
+
+## Action Items
+
+1. Add monitoring for this path.
+2. Document the config change process.
+
+## Lessons Learned
+
+Always review changes in staging first.
+"""
+    sections, doc, eng = _sections_doc(md)
+    genre = classify_genre(sections, doc, md, const)
+    assert genre == "postmortem"
+
+
+# ---------------------------------------------------------------------------
+# General fallback — documents without distinctive signals
+# ---------------------------------------------------------------------------
+
+def test_classifies_general_for_plain_prose(tmp_path):
+    md = """\
+# My Thoughts on Widgets
+
+Widgets are interesting objects that people use every day.
+They come in many shapes and sizes.
+
+There are wooden widgets and plastic widgets.
+Some people prefer metal widgets for their durability.
+
+In conclusion, widgets serve many purposes in daily life.
+"""
+    sections, doc, _ = _sections_doc(md)
+    genre = classify_genre(sections, doc, md, const)
+    assert genre == "general"
+
+
+def test_imrad_structure_without_signals_is_general(tmp_path):
+    """IMRAD headings alone (no code, no status field) → general.
+
+    Scientific papers are not a target genre; no rules are gated on them.
+    """
     md = """\
 # On Frobnicating Widgets
 
@@ -89,16 +217,16 @@ These results suggest frobnicating is effective.
 
 Frobnicating widgets is worthwhile.
 """
-    p = tmp_path / "doc.md"
-    p.write_text(md, encoding="utf-8")
-    eng = RhetoricEngine()
-    sections = eng._parse_with_mistletoe(md)
-    doc = eng.nlp(md)
+    sections, doc, _ = _sections_doc(md)
     genre = classify_genre(sections, doc, md, const)
-    assert genre == "scientific"
+    assert genre == "general"
 
 
-def test_classifies_curriculum_by_numbered_headings_and_list_density(tmp_path):
+def test_numbered_curriculum_structure_without_signals_is_general(tmp_path):
+    """Numbered headings + list density alone → general (not inferred as curriculum).
+
+    Curriculum genre requires explicit genre_override or frontmatter.
+    """
     md = """\
 # Introduction to Widgets
 
@@ -120,32 +248,7 @@ def test_classifies_curriculum_by_numbered_headings_and_list_density(tmp_path):
 - Widget networks
 - Widget lifecycle management
 """
-    p = tmp_path / "doc.md"
-    p.write_text(md, encoding="utf-8")
-    eng = RhetoricEngine()
-    sections = eng._parse_with_mistletoe(md)
-    doc = eng.nlp(md)
-    genre = classify_genre(sections, doc, md, const)
-    assert genre == "curriculum"
-
-
-def test_classifies_general_for_plain_prose(tmp_path):
-    md = """\
-# My Thoughts on Widgets
-
-Widgets are interesting objects that people use every day.
-They come in many shapes and sizes.
-
-There are wooden widgets and plastic widgets.
-Some people prefer metal widgets for their durability.
-
-In conclusion, widgets serve many purposes in daily life.
-"""
-    p = tmp_path / "doc.md"
-    p.write_text(md, encoding="utf-8")
-    eng = RhetoricEngine()
-    sections = eng._parse_with_mistletoe(md)
-    doc = eng.nlp(md)
+    sections, doc, _ = _sections_doc(md)
     genre = classify_genre(sections, doc, md, const)
     assert genre == "general"
 
@@ -174,7 +277,6 @@ pip install pkg
 # ---------------------------------------------------------------------------
 
 def test_genre_override_bypasses_classifier(tmp_path):
-    # Plain prose document would normally classify as "general"
     md = """\
 # Widget Notes
 
@@ -195,8 +297,6 @@ def test_genre_gate_suppresses_tech_rules_for_curriculum(tmp_path, monkeypatch):
     (GENRES={"technical","general"}) should not fire."""
     monkeypatch.setattr(const, "GENRE_GATE_ENABLED", True)
 
-    # Document with ordered list that would normally trigger
-    # Structure.TaskOrientation or Symmetry.OrderedListImperatives
     md = """\
 # Course Syllabus
 
@@ -237,7 +337,7 @@ Review your notes after each session.
 
 def test_genre_gate_disabled_by_default(tmp_path, monkeypatch):
     """With GENRE_GATE_ENABLED=False (default), all rules run regardless of genre."""
-    assert const.GENRE_GATE_ENABLED is False  # verify default
+    assert const.GENRE_GATE_ENABLED is False
 
     md = """\
 # Course Syllabus
@@ -250,11 +350,8 @@ Read chapter one. Consider the foundational concepts.
 
 Attend lab. Complete exercises.
 """
-    # Even with curriculum genre, tech rules should still be able to fire
-    # (gate is off)
     eng = RhetoricEngine()
     p = tmp_path / "doc.md"
     p.write_text(md, encoding="utf-8")
-    # Just confirm it doesn't raise and returns issues (gate-off path)
     issues = eng.lint_files([str(p)], genre_override="curriculum")
     assert isinstance(issues, list)

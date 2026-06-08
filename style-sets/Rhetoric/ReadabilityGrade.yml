@@ -1,0 +1,6 @@
+extends: readability
+message: "Readability score is low (%s) — consider simplifying sentences or vocabulary."
+level: warning
+scope: paragraph
+metric: Lexi
+max: 65

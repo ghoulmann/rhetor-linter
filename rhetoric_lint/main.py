@@ -8,6 +8,7 @@ from typing import List, Optional
 import typer
 
 from rhetoric_lint.engine import RhetoricEngine
+from rhetoric_lint.fix import apply_fixes
 import rhetoric_lint.const as _const
 
 app = typer.Typer(add_completion=False)
@@ -110,6 +111,24 @@ def lint(
         None,
         help="Override detected genre for all files: technical|scientific|academic|curriculum|legal|general",
     ),
+    style_dir: List[Path] = typer.Option(
+        [], "--style-dir", help="Directory of Vale-compatible style sets (repeatable)"
+    ),
+    style: Optional[str] = typer.Option(
+        None, "--style", help="Comma-separated style names to enable (empty = all in style-dir)"
+    ),
+    no_vale: bool = typer.Option(
+        False, "--no-vale", help="Disable Vale-compatible style runners"
+    ),
+    no_markdownlint: bool = typer.Option(
+        False, "--no-markdownlint", help="Disable markdownlint runner"
+    ),
+    fix: bool = typer.Option(
+        False, "--fix", help="Apply all deterministic fixes in-place"
+    ),
+    jtbd_manifest: Optional[str] = typer.Option(
+        None, "--jtbd-manifest", help="Path to jtbd-manifest.json for Coverage.MissingJobCoverage rule"
+    ),
 ):
     """Lint Markdown files for rhetorical quality.
 
@@ -140,10 +159,37 @@ def lint(
         except Exception:
             pass
 
+    # Apply CLI flag overrides to const
+    import rhetoric_lint.const as _c
+    if style_dir:
+        _c.STYLE_DIRS = [str(d) for d in style_dir]
+    if style:
+        _c.ENABLED_STYLES = [s.strip() for s in style.split(",") if s.strip()]
+    if no_vale:
+        _c.STYLE_DIRS = []
+    if no_markdownlint:
+        _c.MARKDOWNLINT_ENABLED = False
+    if jtbd_manifest:
+        _c.JTBD_MANIFEST_PATH = jtbd_manifest
+
     files = _discover_files([str(p) for p in paths] if paths else [], ignore_patterns)
 
     engine = RhetoricEngine()
+    engine._init_runners()
     raw_issues = engine.lint_files(files, genre_override=genre or None)
+
+    # Apply fixes in-place before filtering (fixing is independent of display)
+    if fix:
+        by_file: dict = {}
+        for issue in raw_issues:
+            fp = issue.get("path") or issue.get("file") or ""
+            if fp:
+                by_file.setdefault(fp, []).append(issue)
+        for fp, file_issues in by_file.items():
+            try:
+                apply_fixes(fp, file_issues)
+            except (OSError, PermissionError) as e:
+                typer.echo(f"Could not apply fixes to {fp}: {e}", err=True)
 
     # normalize issues
     matches = []
@@ -241,6 +287,92 @@ def lint(
         raise typer.Exit(2)
 
     raise typer.Exit(code=exit_code)
+
+
+@app.command(name="score")
+def score_cmd(
+    paths: List[Path] = typer.Argument(None),
+    config: Optional[str] = typer.Option(
+        None, "-c", "--config", help="Path to YAML/JSON config file"
+    ),
+    genre: Optional[str] = typer.Option(
+        None, help="Override detected genre for all files"
+    ),
+    style_dir: List[Path] = typer.Option(
+        [], "--style-dir", help="Directory of Vale-compatible style sets (repeatable)"
+    ),
+    style: Optional[str] = typer.Option(
+        None, "--style", help="Comma-separated style names to enable"
+    ),
+    no_vale: bool = typer.Option(False, "--no-vale", help="Disable Vale runners"),
+    no_markdownlint: bool = typer.Option(
+        False, "--no-markdownlint", help="Disable markdownlint runner"
+    ),
+    ignore: Optional[str] = typer.Option(
+        None, help="Comma-separated ignore glob patterns"
+    ),
+):
+    """Score Markdown files and print dimension scores as JSON.
+
+    Findings are counted per scoring dimension (Clarity, Structure, Completeness,
+    Style, Readability) and reported as densities per 1000 words. Always exits 0.
+
+    Examples:
+      rhetoric-lint score docs/
+      rhetoric-lint score --style-dir style-sets/ --style Rhetoric docs/api.md
+    """
+    import dataclasses
+    from rhetoric_lint.score import score_file
+
+    ignore_patterns = [p.strip() for p in (ignore or "").split(",") if p.strip()]
+
+    cfg = _load_config(config)
+    if cfg:
+        try:
+            import rhetoric_lint.const as const
+            for k, v in cfg.items():
+                if hasattr(const, k):
+                    setattr(const, k, v)
+        except Exception:
+            pass
+
+    import rhetoric_lint.const as _c
+    if style_dir:
+        _c.STYLE_DIRS = [str(d) for d in style_dir]
+    if style:
+        _c.ENABLED_STYLES = [s.strip() for s in style.split(",") if s.strip()]
+    if no_vale:
+        _c.STYLE_DIRS = []
+    if no_markdownlint:
+        _c.MARKDOWNLINT_ENABLED = False
+
+    files = _discover_files([str(p) for p in paths] if paths else [], ignore_patterns)
+
+    engine = RhetoricEngine()
+    engine._init_runners()
+    all_issues = engine.lint_files(files, genre_override=genre or None)
+
+    by_file: dict = {}
+    for issue in all_issues:
+        fp = issue.get("path") or issue.get("file") or ""
+        if fp:
+            by_file.setdefault(fp, []).append(issue)
+
+    results = []
+    for path_str in files:
+        file_findings = by_file.get(path_str, [])
+        context = {
+            "genre": engine.last_genres.get(path_str, "general"),
+            "doc_template": engine.last_doc_templates.get(path_str, "general"),
+        }
+        wc = engine.last_word_counts.get(path_str, 0)
+        result = score_file(path_str, file_findings, context, word_count=wc)
+        d = dataclasses.asdict(result)
+        d.pop("findings", None)  # omit raw findings; use lint for those
+        results.append(d)
+
+    print(json.dumps(results, ensure_ascii=False, indent=2))
+    raise typer.Exit(0)
 
 
 @app.command(name="rules")

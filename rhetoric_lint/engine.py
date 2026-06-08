@@ -4,10 +4,18 @@ from typing import Any, Dict, List, Optional
 
 import spacy
 
+try:
+    import yaml as _yaml
+    _YAML_AVAILABLE = True
+except ImportError:
+    _yaml = None  # type: ignore[assignment]
+    _YAML_AVAILABLE = False
+
 import rhetoric_lint.const as const
 from rhetoric_lint.genre import classify_genre
 from rhetoric_lint.topic_type import classify_section_topic
 from rhetoric_lint.template_type import classify_doc_template
+from rhetoric_lint.runners.base import StyleRunner
 
 # Pre-processing: link reference definition lines (e.g. "[img1]: data:image/png;base64,...")
 # These are blanked out (content replaced, newline kept) before parsing so they don't
@@ -242,6 +250,89 @@ def _blank_html_comments(text: str) -> str:
     return _HTML_COMMENT_RE.sub(_blank, text)
 
 
+# Section annotation blocks: <!--\n---\nkey: value\n---\n-->
+# Must be parsed BEFORE _blank_html_comments() strips all HTML comments.
+_ANNOTATION_BLOCK_RE = re.compile(
+    r"<!--\n---\n(?P<yaml>.+?)\n---\n-->",
+    re.DOTALL,
+)
+
+
+def _parse_frontmatter(raw_text: str) -> dict:
+    """Parse YAML frontmatter into a dict, normalising field aliases.
+
+    Returns an empty dict when frontmatter is absent, PyYAML is unavailable,
+    or the frontmatter block is not valid YAML.
+    """
+    if not _YAML_AVAILABLE:
+        return {}
+    m = re.match(r"\A---\n(.*?)\n---\n?", raw_text, re.DOTALL)
+    if not m:
+        return {}
+    try:
+        parsed = _yaml.safe_load(m.group(1)) or {}
+    except Exception:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+
+    # Normalise keys using FRONTMATTER_ALIASES
+    aliases = getattr(const, "FRONTMATTER_ALIASES", {})
+    normalised: dict = {}
+    lowered = {k.lower(): v for k, v in parsed.items()}
+    for canonical, alias_list in aliases.items():
+        for alias in alias_list:
+            if alias in lowered:
+                normalised[canonical] = lowered[alias]
+                break
+    # Preserve any keys not covered by aliases
+    covered = {a for aliases_for in aliases.values() for a in aliases_for}
+    for k, v in lowered.items():
+        if k not in covered:
+            normalised[k] = v
+    return normalised
+
+
+def _extract_section_annotations(raw_text: str) -> dict:
+    """Extract per-section annotation metadata from HTML comment blocks.
+
+    Annotation format (must appear immediately before a heading)::
+
+        <!--
+        ---
+        topic_type: reference
+        audience: architect
+        sdlc_phase: design
+        ---
+        -->
+        ## Section Heading
+
+    Returns a dict keyed by 1-based line number of the *following* heading,
+    mapping to the parsed YAML dict for that section.  Line numbers are
+    computed from ``raw_text`` before any blanking occurs.
+    """
+    if not _YAML_AVAILABLE:
+        return {}
+    lines = raw_text.split("\n")
+    annotations: dict = {}
+    for m in _ANNOTATION_BLOCK_RE.finditer(raw_text):
+        try:
+            meta = _yaml.safe_load(m.group("yaml")) or {}
+        except Exception:
+            continue
+        if not isinstance(meta, dict):
+            continue
+        # Find line number of the block's closing "-->" then look ahead for the
+        # first ATX heading line after the block.
+        block_end_pos = m.end()
+        block_end_line = raw_text[:block_end_pos].count("\n")  # 0-based
+        for i in range(block_end_line, min(block_end_line + 5, len(lines))):
+            if re.match(r"^#{1,6}\s", lines[i]):
+                annotations[i + 1] = meta  # 1-based line number
+                break
+    return annotations
+
+
 def _strip_inline_html(text: str) -> str:
     """Replace inline HTML tags with spaces, preserving line/column offsets.
 
@@ -412,6 +503,35 @@ def get_synsets(text: str) -> set:
     return synset_ids
 
 
+class CrossFileContext:
+    """Accumulates cross-file signals for rules that need document-set awareness.
+
+    term_first_seen:    term → (file_path, section_heading) of first occurrence
+    concept_definitions: term → list of paragraph texts where it is defined
+    """
+
+    def __init__(self) -> None:
+        self.term_first_seen: Dict[str, tuple] = {}
+        self.concept_definitions: Dict[str, List[str]] = {}
+
+    def scan(self, paths: List[str], nlp) -> None:
+        """First-pass scan: populate term_first_seen across all files."""
+        for path in paths:
+            try:
+                text = open(path, encoding="utf-8").read()
+            except OSError:
+                continue
+            try:
+                doc = nlp(text[:50_000])
+            except Exception:
+                continue
+            for token in doc:
+                if token.is_alpha and not token.is_stop and len(token.text) >= 4:
+                    key = token.lemma_.lower()
+                    if key not in self.term_first_seen:
+                        self.term_first_seen[key] = (path, "")
+
+
 class RhetoricEngine:
     def __init__(self):
         self.nlp = self._init_spacy()
@@ -419,6 +539,11 @@ class RhetoricEngine:
         self.parse_with_mistletoe = True
         # genre detected per file during the last lint_files() call
         self.last_genres: Dict[str, str] = {}
+        # doc template and word count stored for score_file() callers
+        self.last_doc_templates: Dict[str, str] = {}
+        self.last_word_counts: Dict[str, int] = {}
+        # external style runners (Vale YAML, markdownlint, etc.)
+        self._runners: List[StyleRunner] = []
         # load rule modules — attach GENRES frozenset to each check function
         self.rules = []
         for name in (
@@ -445,12 +570,47 @@ class RhetoricEngine:
             "explanation",
             "doc_templates",
             "forward_ref",
+            "syntactic_depth",
+            "nominalizations",
+            "metric_density",
+            "tone",
+            "preferred_form",
+            "passive_voice",
+            "sentence_rhythm",
+            "unsupported_claim",
+            "jtbd_coverage",
         ):
             mod = import_module(f"rhetoric_lint.rules.{name}")
             if hasattr(mod, "check"):
                 check_fn = mod.check
                 check_fn.genres = getattr(mod, "GENRES", frozenset({"all"}))
                 self.rules.append(check_fn)
+
+    def _init_runners(self) -> None:
+        """Instantiate and load external style runners based on const settings."""
+        self._runners = []
+        style_dirs = getattr(const, "STYLE_DIRS", [])
+        enabled_styles = getattr(const, "ENABLED_STYLES", [])
+        markdownlint_enabled = getattr(const, "MARKDOWNLINT_ENABLED", True)
+        markdownlint_config = getattr(const, "MARKDOWNLINT_CONFIG", "")
+
+        if style_dirs:
+            try:
+                from rhetoric_lint.runners.vale_style import ValeStyleRunner
+                runner = ValeStyleRunner()
+                runner.load(style_dirs=style_dirs, enabled_styles=enabled_styles)
+                self._runners.append(runner)
+            except ImportError:
+                pass
+
+        if markdownlint_enabled:
+            try:
+                from rhetoric_lint.runners.markdownlint import MarkdownlintRunner
+                runner = MarkdownlintRunner()
+                runner.load(config_path=markdownlint_config)
+                self._runners.append(runner)
+            except ImportError:
+                pass
 
     def _parse_with_mistletoe(self, text: str):
         """Optional parser using `mistletoe` to build a section-aware structure.
@@ -748,6 +908,21 @@ class RhetoricEngine:
         paths: List[str],
         genre_override: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        # First pass: build cross-file context for rules that need document-set awareness
+        cross_file = CrossFileContext()
+        cross_file.scan(paths, self.nlp)
+
+        # SP12: Load JTBD manifest once per run (not per file)
+        jtbd_manifest: Optional[Dict[str, Any]] = None
+        manifest_path = getattr(const, "JTBD_MANIFEST_PATH", "")
+        if manifest_path:
+            try:
+                import json as _json
+                with open(manifest_path, "r", encoding="utf-8") as _f:
+                    jtbd_manifest = _json.load(_f)
+            except Exception:
+                pass
+
         issues = []
         for path in paths:
             try:
@@ -755,6 +930,12 @@ class RhetoricEngine:
                     text = f.read()
             except FileNotFoundError:
                 continue
+
+            # F2: Parse frontmatter and section annotations from raw text BEFORE
+            # any blanking occurs, so metadata is not lost.
+            raw_text = text
+            frontmatter = _parse_frontmatter(raw_text)
+            section_annotations = _extract_section_annotations(raw_text)
 
             # Strip YAML frontmatter (--- delimited block at start of file).
             # Preserve the original text for line-number accuracy by replacing
@@ -835,12 +1016,35 @@ class RhetoricEngine:
             for sec in sections:
                 sec["topic_type"] = classify_section_topic(sec, const)
 
+            # F1: Apply section-level annotation overrides.  Annotations are
+            # keyed by the 1-based line number of the heading that follows the
+            # <!--\n---\n…\n---\n--> block.  topic_type from an annotation
+            # takes priority over the classifier result; all other keys are
+            # stored in sec["annotation"] for use by rules.
+            for sec in sections:
+                sec_start = sec.get("start", 0)
+                sec_line = raw_text[:sec_start].count("\n") + 1
+                if sec_line in section_annotations:
+                    ann = section_annotations[sec_line]
+                    sec["annotation"] = ann
+                    if "topic_type" in ann:
+                        sec["topic_type"] = ann["topic_type"]
+
+            # F2: Apply frontmatter overrides.  topic_type in frontmatter sets
+            # the first/only section's topic_type when present.
+            if frontmatter.get("topic_type") and sections:
+                sections[0]["topic_type"] = frontmatter["topic_type"]
+
             # Detect document genre (or use caller-supplied override)
-            genre = genre_override or classify_genre(sections, doc, text, const)
+            genre = genre_override or classify_genre(sections, doc, text, const, path=path)
             self.last_genres[path] = genre
 
             # Classify doc template (platform/product sub-types within technical)
             doc_template = classify_doc_template(sections, text, const)
+            self.last_doc_templates[path] = doc_template
+            self.last_word_counts[path] = len(
+                [t for t in doc if not t.is_space and not t.is_punct]
+            ) if doc else 0
 
             context = {
                 "path": path,
@@ -852,6 +1056,10 @@ class RhetoricEngine:
                 "const": const,
                 "genre": genre,
                 "doc_template": doc_template,
+                "cross_file": cross_file,
+                "frontmatter": frontmatter,
+                "section_annotations": section_annotations,
+                "jtbd_manifest": jtbd_manifest,
             }
 
             gate_enabled = getattr(const, "GENRE_GATE_ENABLED", False)
@@ -869,6 +1077,15 @@ class RhetoricEngine:
                         issues.extend(found)
                 except Exception:
                     # rule errors should not stop the engine
+                    continue
+
+            # Dispatch external style runners after Python rules
+            for runner in self._runners:
+                try:
+                    found = runner.check(context)
+                    if found:
+                        issues.extend(found)
+                except Exception:
                     continue
 
         return issues

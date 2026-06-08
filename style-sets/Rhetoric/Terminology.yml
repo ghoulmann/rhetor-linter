@@ -1,0 +1,21 @@
+extends: substitution
+message: "Non-inclusive term: '%s' — consider the suggested replacement."
+level: suggestion
+scope: paragraph
+ignorecase: true
+swap:
+  whitelist: allowlist
+  blacklist: denylist
+  'master branch': 'main branch'
+  'master/slave': 'primary/replica'
+  'master': 'main'
+  'slave': 'replica'
+  'sanity check': 'quick check'
+  'grandfathered': 'legacy'
+  'fire(?:m[ae]n|wom[ae]n)': firefighter
+  'police(?:m[ae]n|wom[ae]n)': police officer
+  'chair(?:m[ae]n|wom[ae]n)': chair
+  mankind: humankind
+  manmade: human-made
+  'man-made': 'human-made'
+  manpower: workforce

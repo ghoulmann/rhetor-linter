@@ -1,0 +1,20 @@
+extends: substitution
+message: "Inclusive language: consider replacing '%s'."
+level: suggestion
+scope: paragraph
+ignorecase: true
+swap:
+  guys: folks
+  'hey guys': 'hey everyone'
+  crazy: unexpected
+  insane: extreme
+  stupid: incorrect
+  dumb: confusing
+  cripple: limit
+  crippled: limited
+  crippling: severe
+  abort: cancel
+  kill: stop
+  hang: freeze
+  dummy: placeholder
+  primitive: basic

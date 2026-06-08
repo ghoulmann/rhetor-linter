@@ -1,0 +1,3 @@
+name: Spelling
+description: Spell-checking using US English dictionary with AWS and tech vocabulary.
+requires: spylls

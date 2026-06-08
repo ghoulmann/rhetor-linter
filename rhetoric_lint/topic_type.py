@@ -109,6 +109,49 @@ def _has_ordered_list(section: Dict[str, Any]) -> bool:
     return False
 
 
+def _classify_section_by_body(
+    section: Dict[str, Any],
+    const: Optional[Any] = None,
+) -> str:
+    """NLP tiebreaker for sections whose heading does not resolve to a known type.
+
+    Uses the spaCy Doc objects already computed per paragraph.  Returns
+    ``"howto"`` when imperative-sentence ratio ≥ threshold; ``"general"``
+    otherwise.
+
+    Concept/explanation are intentionally not detected here — nominalization
+    density is too noisy in generic-heading technical sections to be reliable
+    without a validated corpus threshold.
+    """
+    threshold = 0.40
+    if const and hasattr(const, "SECTION_IMPERATIVE_RATIO_HOWTO"):
+        threshold = const.SECTION_IMPERATIVE_RATIO_HOWTO
+
+    imperative = 0
+    total_sents = 0
+
+    for para in section.get("paragraphs", []):
+        doc = para.get("doc")
+        if doc is None:
+            continue
+        try:
+            sents = list(doc.sents)
+        except Exception:
+            continue
+        for sent in sents:
+            total_sents += 1
+            alpha_tokens = [t for t in sent if t.is_alpha]
+            # tag_ is "" when the model has no tagger — safe to compare
+            if alpha_tokens and getattr(alpha_tokens[0], "tag_", "") == "VB":
+                imperative += 1
+
+    if total_sents == 0:
+        return "general"
+    if imperative / total_sents >= threshold:
+        return "howto"
+    return "general"
+
+
 def classify_section_topic(
     section: Dict[str, Any],
     const: Optional[Any] = None,
@@ -116,6 +159,7 @@ def classify_section_topic(
     """Return the topic type string for *section*.
 
     Classification order: most distinctive signals first.
+    Generic-heading sections fall through to a body-NLP tiebreaker.
     """
     heading = _h(section)
     body = _body_text(section)
@@ -162,4 +206,5 @@ def classify_section_topic(
     if heading in _CONCEPT_HEADINGS:
         return "concept"
 
-    return "general"
+    # 8. Body-NLP tiebreaker for generic headings: imperative sentence ratio
+    return _classify_section_by_body(section, const)

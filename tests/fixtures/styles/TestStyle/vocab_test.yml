@@ -1,0 +1,7 @@
+extends: existence
+message: "Avoid '%s'"
+level: warning
+scope: text
+tokens:
+  - synergy
+  - leverage

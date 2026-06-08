@@ -218,5 +218,14 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Claude Code local settings — machine-specific, never commit
+.claude/settings.local.json
 
-style-sets
+# Vale style sets — only project-owned sets are tracked; user/third-party sets are ignored
+style-sets/*
+!style-sets/Rhetoric
+!style-sets/Rhetoric/**
+!style-sets/Clarity
+!style-sets/Clarity/**
+!style-sets/Spelling
+!style-sets/Spelling/**

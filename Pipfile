@@ -10,6 +10,7 @@ spacy-wordnet = "*"
 typer = "*"
 nltk = "*"
 pyyaml = "*"
+spylls = "*"
 
 [dev-packages]
 pytest = "*"

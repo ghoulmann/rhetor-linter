@@ -1,0 +1,16 @@
+extends: existence
+message: "Potentially exclusionary term: '%s' — consider a more inclusive alternative."
+level: suggestion
+scope: paragraph
+ignorecase: true
+nonword: false
+tokens:
+  - lame
+  - dumb
+  - insane
+  - 'he/she'
+  - 's/he'
+  - man-hours
+exceptions:
+  - lame duck
+  - lame excuse

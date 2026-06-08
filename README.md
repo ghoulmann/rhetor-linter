@@ -1,6 +1,6 @@
 # rhetoric-lint
 
-A Markdown linter for rhetorical and structural quality. Drop-in Vale alternative for CI/CD pipelines. Checks cohesion, unity, completeness, symmetry, attention, headings, and rhetoric using spaCy NLP and a mistletoe AST parser.
+A Markdown linter for rhetorical and structural quality. Checks cohesion, unity, completeness, symmetry, attention, headings, and rhetoric using spaCy NLP and a mistletoe AST parser. Includes Vale-compatible and markdownlint-compatible style runners.
 
 ## Installation
 
@@ -20,6 +20,7 @@ Manual install:
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 pip install pyyaml       # optional: needed for YAML config/output
+pip install 'rhetoric-lint[spell]'  # optional: needed for spelling rules
 ```
 
 ## Usage
@@ -29,8 +30,10 @@ rhetoric-lint docs/
 rhetoric-lint --format text --min-severity warning docs/api.md
 rhetoric-lint --rules Cohesion.Break,Heading.Generic docs/
 rhetoric-lint --ignore-rules Rhetoric.ThroatClearing docs/
-rhetoric-lint --genre curriculum docs/syllabus.md
+rhetoric-lint --genre howto docs/syllabus.md
 rhetoric-lint --config .rhetoric-lint.yaml docs/
+rhetoric-lint --style-dir style-sets/ --style Rhetoric docs/
+rhetoric-lint --style-dir style-sets/ --style Rhetoric,Spelling docs/
 ```
 
 List all available rules:
@@ -51,15 +54,26 @@ rhetoric-lint rules --format json
 | `--ignore-rules` | — | Comma-separated denylist of rules to suppress |
 | `--ignore` | — | Comma-separated glob patterns to exclude files |
 | `--config`, `-c` | — | YAML or JSON config file; keys matching `const.py` override defaults |
-| `--genre` | — | Override genre detection: `technical`, `scientific`, `academic`, `curriculum`, `legal`, `adr`, `postmortem`, `general` |
+| `--genre` | — | Override genre detection: `howto`, `tutorial`, `concept`, `explanation`, `reference`, `adr`, `postmortem`, `changelog`, `readme`, `general` |
+| `--style-dir` | — | Parent directory of Vale-compatible style sets (repeatable) |
+| `--style` | — | Comma-separated style names to enable (empty = all in `--style-dir`) |
+| `--no-vale` | false | Disable Vale-compatible style runners |
+| `--no-markdownlint` | false | Disable markdownlint runner |
+| `--fix` | false | Apply all deterministic fixes in-place |
 
 Both `--rules` and `--ignore-rules` support prefix matching: `--rules Cohesion` matches all `Cohesion.*` checks.
 
 ## Output formats
 
 **JSON** (default) — Vale-compatible:
+
 ```json
-{ "Genre": {"file.md": "technical"}, "Matches": [{ "Path": "...", "Line": 1, "Check": "...", "Message": "...", "Severity": "warning" }] }
+{
+  "Genre": { "file.md": "howto" },
+  "Matches": [
+    { "Path": "...", "Line": 1, "Check": "...", "Message": "...", "Severity": "warning" }
+  ]
+}
 ```
 
 **Text**: `file.md:LINE:COL: [SEVERITY] RULE — message`
@@ -76,36 +90,73 @@ Both `--rules` and `--ignore-rules` support prefix matching: `--rules Cohesion` 
 | `1` | Warnings or suggestions only |
 | `2` | At least one `error`, or CLI/config failure |
 
-## Classification
+## Style runners
 
-The linter classifies every document along three dimensions before running rules:
+### Vale-compatible rules (`--style-dir`)
 
-| Dimension | Granularity | Classifier | Example values |
-|-----------|-------------|------------|----------------|
-| Genre | Document | `genre.py` | `technical`, `adr`, `postmortem`, `curriculum` |
-| Topic type | Section | `topic_type.py` | `concept`, `howto`, `reference`, `faq` |
-| Doc template | Document (technical sub-genre) | `template_type.py` | `quick_start`, `architecture`, `platform_onboarding` |
+Any directory of Vale-format `.yml` rule files can be loaded. Supported rule types: `existence`, `substitution`, `occurrence`, `metric`, `capitalization`, `repetition`, `consistency`, `conditional`, `readability`, `sequence`, `spelling`.
 
-**Genre** shapes structural expectations at the document level (e.g. ADR requires a `Status:` field; Postmortem requires action items with owners).
+Three style sets ship in `style-sets/`:
 
-**Topic type** is assigned per-section based on heading keywords, list structure, and spaCy POS tags. It shapes rules that fire inside individual sections (e.g. How-To steps must begin with imperative verbs; Concept sections must not contain procedural ordered lists).
+**`Rhetoric`** — rhetorical quality checks for technical prose:
 
-**Doc template** is a finer classification within the `technical` genre. It enforces section-presence completeness (e.g. a Quick Start must have Prerequisites, a core task, a Verify step, and Next Steps).
+| Style rule | Type | Description |
+|-----------|------|-------------|
+| `Rhetoric.TrivializingLanguage` | existence | Flags `simply`, `easily`, `obviously`, `of course`, `straightforward`, `basically`, `merely`, `trivially`, `naturally` |
+| `Rhetoric.TrivializingLanguage-just` | existence | Flags `just` with temporal-use exceptions (`just released`, `have just`, etc.) |
+| `Rhetoric.Terminology` | substitution | Inclusive terminology: `whitelist`→`allowlist`, `blacklist`→`denylist`, `master`→`main`, gendered role terms, `manpower`→`workforce` |
+| `Rhetoric.Inclusivity` | existence | Flags terms with more inclusive alternatives (`guys`, `crazy`, etc.) |
+| `Rhetoric.InclusivityFlag` | existence | Flags terms without clean drop-in replacements (`lame`, `dumb`, `insane`, `man-hours`) |
+| `Rhetoric.ReadabilityGrade` | readability | Flags paragraphs with Lexi composite readability score below 65 |
 
-Genre classification is currently ungated (`GENRE_GATE_ENABLED = False`); all rules self-qualify internally using structural signals.
+**`Clarity`** — readability structure checks:
+
+| Style rule | Type | Description |
+|-----------|------|-------------|
+| `Clarity.FleschReadingEase` | readability | Flags paragraphs below the configured Flesch Reading Ease threshold |
+| `Clarity.Nominalizations` | occurrence | Flags excessive nominalizations per sentence |
+| `Clarity.PrepositionalDensity` | occurrence | Flags excessive prepositional phrases per sentence |
+
+**`Spelling`** — spell-checking with AWS and tech vocabulary (requires `pip install 'rhetoric-lint[spell]'`):
+
+| Style rule | Type | Description |
+|-----------|------|-------------|
+| `Spelling.Spelling` | spelling | Flags misspelled words using `en_US`; AWS service names and tech terms pre-allowed via `vocab/aws.txt` and `vocab/tech.txt` |
+
+Adding terms to the vocabulary: append one word per line to `style-sets/Spelling/vocab/tech.txt` (general tech) or `vocab/aws.txt` (AWS). Words are matched case-insensitively. To use a custom wordlist in your own style:
+
+```yaml
+extends: spelling
+dictionaries:
+  - en_US
+ignore:
+  - vocab/myterms.txt
+```
+
+`substitution` rules write a `fix` payload and are applied in-place by `--fix`. Spelling suggestions are informational only — no auto-fix.
+
+Genre gating: add a `genre:` field to any rule YAML to restrict it to matching document genres. Add `meta.yml` with `genre:` to gate an entire style set.
+
+### markdownlint structural rules
+
+12 structural MD rules run automatically (unless `--no-markdownlint`). Configure via `.markdownlint.json/.yaml/.yml` discovered from the file's directory. Inline suppression via HTML comments:
+
+```html
+<!-- markdownlint-disable MD013 -->
+Long line here is OK.
+<!-- markdownlint-enable MD013 -->
+```
+
+Rules with auto-fix support (applied by `--fix`): MD003, MD009, MD010, MD012, MD022, MD031, MD032.
+
+Python custom rules via `.markdownlint-cli2.yaml`:
+
+```yaml
+customRules:
+  - my_custom_rule.py
+```
 
 ## Rules
-
-Several rules — particularly the heading-topic coherence, cohesion, and task
-orientation checks — work best when each section opens with a plain introductory
-sentence before any table, code block, or list. The linter treats the first
-substantial sentence as the section's topic sentence and measures its overlap
-with the heading and body. When a section jumps straight into structured content,
-that overlap is zero and the rule fires. Adding a short lead-in sentence
-(e.g., "The CLI accepts the following flags:") resolves most of these and is
-generally good practice for both human readers and automated retrieval systems.
-
-### Core structural rules
 
 | Check | Severity | Description |
 |-------|----------|-------------|
@@ -133,140 +184,21 @@ generally good practice for both human readers and automated retrieval systems.
 | `Completeness.StructureLead` | suggestion | Section opens directly with a list or code block without a lead sentence |
 | `Structure.ActionableHeadings` | suggestion | Noun-only headings in a task-oriented document |
 | `Curriculum.MissingAssessment` | suggestion | Curriculum section has no assessment element (genre-gated) |
-| `Engine.OversizedDocument` | suggestion | File exceeds NLP_MAX_CHARS; full-document NLP was truncated (section-level checks still run on the complete file) |
 
-### Architecture Decision Records (ADR)
-
-Self-qualify on: `Status:` field + ≥2 ADR-section headings, or ≥3 ADR-section headings alone.
+### NLP rules (spaCy-based)
 
 | Check | Severity | Description |
 |-------|----------|-------------|
-| `ADR.MissingDecision` | error | ADR is missing a Decision section |
-| `ADR.MissingStatus` | warning | ADR is missing a `Status:` field |
-| `ADR.UndecidedStatus` | warning | ADR `Status` is Proposed/Draft but Decision section has no body |
-| `ADR.MissingConsequences` | warning | ADR is missing a Consequences, Trade-offs, or Impact section |
-
-### Postmortem / Incident Reports
-
-Self-qualify on: ≥3 postmortem-signal headings (Timeline, Impact, Root Cause, Action Items, etc.).
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Postmortem.MissingRootCause` | error | Postmortem has no Root Cause or Contributing Factors section |
-| `Postmortem.MissingActionItems` | error | Postmortem has no Action Items or Corrective Actions section |
-| `Postmortem.OpenActionItem` | warning | Action item has no assigned owner (`@mention`) and no due date |
-| `Postmortem.MissingTimeline` | warning | Postmortem has no Timeline section |
-
-### Topic-type checks
-
-Assigned per-section by `topic_type.py` based on heading keywords, list structure, and spaCy POS tags.
-
-**Concept** — high-level orientation; must not drift into procedures.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Concept.ProcedureLeak` | warning | Concept section contains ≥3 ordered imperative steps — move to a How-To |
-
-**Troubleshooting** — reactive resolution guidance; remediation must be sequenced.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Troubleshooting.MissingRemediation` | warning | Troubleshooting section has no ordered remediation steps |
-| `Troubleshooting.UnorderedRemediation` | warning | Troubleshooting remediation steps are in an unordered list; order matters |
-
-**How-To** — goal-oriented directions; steps must be imperative and ordered.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `HowTo.UnorderedSteps` | warning | How-To section uses an unordered list where a numbered sequence is required |
-| `HowTo.NonImperativeStep` | suggestion | How-To step does not begin with an imperative verb |
-
-**FAQ** — self-contained Q&A pairs; each entry must be a question with a substantive answer.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `FAQ.EmptyAnswer` | warning | FAQ entry has no substantive answer |
-| `FAQ.NonQuestionEntry` | suggestion | FAQ heading is not phrased as a question |
-
-**Tutorial** — learning-oriented; single path, observation cues required.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Tutorial.AlternativesDiversion` | warning | Tutorial offers alternative paths — tutorials must follow a single route |
-| `Tutorial.NoObservationCues` | suggestion | Tutorial section has no feedback mechanism ("you should see", "notice that", etc.) |
-
-**Reference** — technical machinery description; must not contain procedural steps.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Reference.ContainsInstructions` | warning | Reference section contains procedural steps — move to a How-To |
-
-**Explanation** — discursive treatment; must connect to related concepts.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Explanation.ContainsInstructions` | warning | Explanation section contains procedural steps — move to a How-To |
-| `Explanation.NoConnections` | suggestion | Explanation section has no links to related concepts |
-
-### Document template checks
-
-Classified per-document by `template_type.py`. All checks enforce section-presence completeness or structural anti-patterns within a specific template.
-
-**Product Overview** — capabilities and use cases; no procedures.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `ProductOverview.MissingOverview` | warning | Missing an Overview or Introduction section |
-| `ProductOverview.MissingCapabilities` | warning | Missing a Capabilities or Features section |
-| `ProductOverview.ProcedureLeak` | warning | Contains procedural steps — link to a How-To instead |
-| `ProductOverview.MissingUseCases` | suggestion | Missing a Use Cases section |
-
-**Architecture** — all sections should be Concept type.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Architecture.MissingOverview` | warning | Missing an Overview section |
-| `Architecture.MissingTechnicalDesign` | warning | Missing a Components or Technical Design section |
-| `Architecture.ProcedureLeak` | warning | Contains procedural steps — Architecture docs should be Concept throughout |
-
-**Use Cases** — one use case per section.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `UseCases.MissingOverview` | warning | Missing an Overview section |
-| `UseCases.MultipleUseCasesInSection` | suggestion | A section contains multiple sub-use-cases — each should be its own top-level section |
-
-**Onboarding** — overview + requirements + steps.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `Onboarding.MissingSteps` | error | Missing a How-To steps section |
-| `Onboarding.MissingOverview` | warning | Missing an Overview section |
-| `Onboarding.MissingRequirements` | warning | Missing a Requirements or Prerequisites section |
-
-**Quick Start** — minimal path to first success.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `QuickStart.MissingCoreTask` | error | Missing a core task How-To section |
-| `QuickStart.MissingOverview` | warning | Missing an Overview section |
-| `QuickStart.MissingPrerequisites` | warning | Missing a Prerequisites section |
-| `QuickStart.MissingVerification` | warning | Missing a Verify step — readers need confirmation that setup succeeded |
-| `QuickStart.MissingNextSteps` | suggestion | Missing a Next Steps section |
-
-**Platform Onboarding** — comprehensive setup: env + auth + workflow + key concepts + troubleshooting.
-
-| Check | Severity | Description |
-|-------|----------|-------------|
-| `PlatformOnboarding.MissingOverview` | warning | Missing an Overview section |
-| `PlatformOnboarding.MissingPrerequisites` | warning | Missing a Prerequisites section |
-| `PlatformOnboarding.MissingEnvSetup` | warning | Missing an Environment Setup section |
-| `PlatformOnboarding.MissingAuth` | warning | Missing an Authentication section |
-| `PlatformOnboarding.MissingWorkflow` | warning | Missing a Workflow or core task section |
-| `PlatformOnboarding.MissingVerification` | warning | Missing a Verify step |
-| `PlatformOnboarding.MissingTroubleshooting` | warning | Missing a Troubleshooting section |
-| `PlatformOnboarding.MissingKeyConcepts` | suggestion | Missing a Key Concepts section |
-| `PlatformOnboarding.MissingNextSteps` | suggestion | Missing a Next Steps section |
+| `Attention.SyntacticDepth` | suggestion | Sentence has deeply nested clause structure |
+| `Rhetoric.Nominalization` | suggestion | Nominalized verb form in "the X of" prepositional pattern |
+| `Attention.MetricDensity` | suggestion | Sentence has high proportion of numeric tokens |
+| `Rhetoric.ToneImbalance` | suggestion | Excessive authoritative modals or negative framing |
+| `Terminology.PreferredForm` | suggestion | Term does not match required form in `TERMINOLOGY_FILE` |
+| `Symmetry.TabVariantBalance` | suggestion | Content-tab variants have unequal step counts |
+| `Rhetoric.PassiveVoiceActorGap` | suggestion | Passive construction without an explicit by-agent |
+| `Attention.SentenceRhythm` | suggestion | Monotonous or wildly uneven sentence-length pacing |
+| `Completeness.UnsupportedClaim` | suggestion | Assertion signal not followed by evidence within 2 sentences |
+| `Rhetoric.UnresolvedContrast` | suggestion | Contrast signal without a following resolution |
 
 ## Configuration
 
@@ -277,20 +209,13 @@ Any key in `const.py` can be overridden via config file:
 MAX_SENTENCE_TOKENS: 35
 REQUIRE_H1: false
 UNITY_MIN_HEADING_TOPIC_CONTENT_OVERLAP: 0.15
-COMPLETENESS_STRUCT_LEAD_MIN_LIST_ITEMS: 3  # lists shorter than this don't require a lead sentence
-NLP_MAX_CHARS: 500000                       # truncate full-doc NLP for large files
+COMPLETENESS_STRUCT_LEAD_MIN_LIST_ITEMS: 3
+NLP_MAX_CHARS: 500000
 ```
 
 ```bash
 rhetoric-lint --config .rhetoric-lint.yaml docs/
 ```
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture constraints, the rule
-authoring guide, and the
-[Genre Labeling Guide](tests/fixtures/corpus/LABELING_GUIDE.md) for corpus
-annotation work.
 
 ## Development
 
@@ -301,3 +226,5 @@ make lint-self     # run rhetoric-lint on docs/ and README.md
 make rules         # list all rules
 make clean         # remove __pycache__, .pytest_cache, .coverage
 ```
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.

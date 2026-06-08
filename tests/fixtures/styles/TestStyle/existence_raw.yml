@@ -1,0 +1,9 @@
+extends: existence
+message: "Passive construction: '%s'"
+level: suggestion
+scope: text
+raw:
+  - "was\\s+"
+tokens:
+  - created
+  - deleted
