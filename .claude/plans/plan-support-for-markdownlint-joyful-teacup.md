@@ -30,30 +30,33 @@
 ## Dependency graph
 
 ```
-SP1: Runner Infrastructure + Fix Framework + CrossFileContext stub
- ├── SP2: Vale Core (existence + substitution)
- │    ├── SP4: Vale Extended Types (+ _readability.py)
- │    │    └── SP9: ProsePartner Gaps (also needs SP8)
- │    ├── SP6: Rhetoric YAML Migration (TrivializingLanguage)
- │    ├── SP7: Rhetoric YAML Additions (Terminology, Inclusivity)
- │    └── SP_SPELL: Vale spelling rule type
- ├── SP3: markdownlint Native Rules
- │    └── SP5: markdownlint-cli2 Python Custom Rule Extension
- ├── SP8: NLP Rule Expansion (5 rules + TabVariantBalance)
- │    └── SP9: ProsePartner Gaps (also needs SP4)
+SP1: Runner Infrastructure + Fix Framework + CrossFileContext stub  ✅
+ ├── SP2: Vale Core (existence + substitution)  ✅
+ │    ├── SP4: Vale Extended Types (+ _readability.py)  ✅
+ │    │    └── SP9: ProsePartner Gaps (also needs SP8)  ✅
+ │    ├── SP6: Rhetoric YAML Migration (TrivializingLanguage)  ✅
+ │    ├── SP7: Rhetoric YAML Additions (Terminology, Inclusivity)  ✅
+ │    └── SP_SPELL: Vale spelling rule type  ✅
+ ├── SP3: markdownlint Native Rules  ✅
+ │    └── SP5: markdownlint-cli2 Python Custom Rule Extension  ✅
+ ├── SP8: NLP Rule Expansion (5 rules + TabVariantBalance)  ✅
+ │    └── SP9: ProsePartner Gaps (also needs SP4)  ✅
  └── CrossFileContext (from SP1)
-      ├── SP10: DependencyReveal
-      └── SP11: ConceptReintroductionPenalty
+      ├── SP10: DependencyReveal  [backlog]
+      └── SP11: ConceptReintroductionPenalty  [backlog]
 
 Independent (after SP1 CLI stable):
- └── SP_CI: Pre-commit + GitHub Actions
-
-Independent (any time):
- └── SP_CONTRAST: Rhetoric.UnresolvedContrast
+ ├── SP_CI: Pre-commit + GitHub Actions  ✅
+ ├── SP_CONTRAST: Rhetoric.UnresolvedContrast  ✅
+ ├── SP_GENRE: 10-genre Diataxis classifier  ✅
+ └── SP12: Coverage.MissingJobCoverage (JTBD manifest)  ✅
+      └── SP_CONFIG: Layered config + dimension taxonomy redesign  [open]
+           ├── SP_FAQ: FAQ.SemanticMisrouting  [backlog]
+           └── SP_CONFIG_VCS: Config revision tracking (XDG git)  [backlog]
 ```
 
-| # | Subplan | Depends on |
-|---|---|---|
+| # | Subplan | Depends on | Status |
+|---|---|---|---|
 | SP1 | Runner infrastructure + fix framework + CrossFileContext stub | — | ✅ done |
 | SP2 | Vale core types (existence + substitution) | SP1 | ✅ done |
 | SP3 | markdownlint native MD rules | SP1 | ✅ done |
@@ -66,16 +69,24 @@ Independent (any time):
 | SP_SPELL | Vale spelling rule type (spylls optional dep) | SP2 | ✅ done |
 | SP_CONTRAST | Rhetoric.UnresolvedContrast | — | ✅ done |
 | SP_GENRE | Genre refactor: 10-genre Diataxis set, filename detection, corpus relabeling | — | ✅ done |
+| SP_CI | Pre-commit + GitHub Actions integration | SP1 | ✅ done |
+| SP12 | Coverage.MissingJobCoverage — JTBD manifest integration, `--jtbd-manifest` flag | SP1 | ✅ done |
 | F1 | Section annotation pre-pass | engine.py | ✅ done |
 | F2 | Frontmatter parsing + FRONTMATTER_ALIASES | engine.py | ✅ done |
 | F4 | SCORE_MIN_WORDS = 150 + score.py skeleton | const.py, score.py | ✅ done |
-| F5 | DIMENSION_MAP (5 scoring dimensions) | const.py | ✅ done |
+| F5 | DIMENSION_MAP (5 scoring dimensions → redesigned as 5 new dims; see SP_CONFIG) | const.py | ✅ done |
 | F9 | metadata.py: normalise_topic_type, normalise_owner, normalise_frontmatter | metadata.py | ✅ done |
-| SP_CI | Pre-commit + GitHub Actions integration | SP1 | open |
+| SP_CONFIG | Layered config system: autodiscovery, per-path scoping, per-rule severity overrides, TOML primary, XDG defaults; includes dimension taxonomy redesign (Form + Coverage replace Completeness; Readability absorbed into Clarity) | SP12 | open — plan at `plan-the-implementation-moonlit-shell.md` |
+| F3 | SP12 N×M emission fix — corpus-level finding via CrossFileContext or `primary_doc_path` manifest hint | CrossFileContext | open |
+| F6 | SP12 tokenizer contract test — parity fixture between jtbd-tool and rhetor-linter Jaccard | SP12 | open |
+| F8 | Document polling staleness as known limitation in server docs | server stub | open |
+| F10 | Server import constraint in CONTRIBUTING.md | server stub | open |
+| SP_FAQ | FAQ.SemanticMisrouting — detect FAQ entries that belong in another topic type | SP_GENRE | backlog |
+| SP_CONFIG_VCS | Per-project config revision tracking under `~/.rhetoric-lint/projects/` (bare git, no DB) | SP_CONFIG | backlog |
 | SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) | backlog |
 | SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) | backlog |
 
-SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1).
+SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1). SP_CONFIG is the next open sprint.
 
 ---
 
@@ -153,6 +164,13 @@ TODO
     unassigned prefixes now mapped. `const.DIMENSION_DEFAULT = "Style"` fallback.
     Tests in `tests/test_f1_f2_f5.py`.
 
+  [DIMENSION REDESIGN — scheduled for SP_CONFIG] The 5-dimension model has a category
+    error. "Completeness" is retired; "Readability" is absorbed into Clarity. New 5
+    dimensions: Clarity (owns readability), Structure, Style, Form (template/topic-type
+    adherence: HowTo.*, ADR.*, Tutorial.*), Coverage (depth/needs: JTBD, error paths,
+    Resilience.*). `const.DIMENSION_MAP` update is part of SP_CONFIG implementation.
+    Full dimension spec in `plan-the-implementation-moonlit-shell.md`.
+
   [MAJOR F6] SP12 tokenizer parity has no contract test.
     Plan says "reimplement _tokenize identically." Any drift in jtbd-tool stopwords
     silently diverges Jaccard scores. Fix: shared contract fixture — fixed text + job
@@ -175,6 +193,13 @@ TODO
     Rule modules must never import server-layer packages (FastAPI, SQLAlchemy) at module
     level or [server] extra becomes a hard transitive dep for all users. Add to
     CONTRIBUTING.md when server sub-package is created.
+
+  [CONFIG ARCHITECTURE — resolved 2026-06-08] Two separate config worlds:
+    - Developer local: CLI > project-adjacent .rhetoric-lint.toml > XDG ~/.rhetoric-lint/defaults.toml > built-in defaults
+    - Server reporting: server config is a full takeover — developer local and XDG configs are not consulted for server-side scoring runs
+    These two worlds must never merge at runtime. Server generates .rhetoric-lint.toml for its
+    targets; it does not insert itself as a runtime merge layer for local runs.
+    Full spec in `plan-the-implementation-moonlit-shell.md` (SP_CONFIG).
 
 Backlog — Blocked on CrossFileContext (from SP1)
   SP10: DependencyReveal
