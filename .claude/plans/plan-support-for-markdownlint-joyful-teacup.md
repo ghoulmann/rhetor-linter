@@ -50,6 +50,7 @@ Independent (after SP1 CLI stable):
  ├── SP_CONTRAST: Rhetoric.UnresolvedContrast  ✅
  ├── SP_GENRE: 10-genre Diataxis classifier  ✅
  └── SP12: Coverage.MissingJobCoverage (JTBD manifest)  ✅
+      ├── SP_VCS: Coverage.DocCodeDrift (git diff → Jaccard)  [backlog]
       └── SP_CONFIG: Layered config + dimension taxonomy redesign  [open]
            ├── SP_FAQ: FAQ.SemanticMisrouting  [backlog]
            └── SP_CONFIG_VCS: Config revision tracking (XDG git)  [backlog]
@@ -77,10 +78,11 @@ Independent (after SP1 CLI stable):
 | F5 | DIMENSION_MAP (5 scoring dimensions → redesigned as 5 new dims; see SP_CONFIG) | const.py | ✅ done |
 | F9 | metadata.py: normalise_topic_type, normalise_owner, normalise_frontmatter | metadata.py | ✅ done |
 | SP_CONFIG | Layered config system: autodiscovery, per-path scoping, per-rule severity overrides, TOML primary, XDG defaults; includes dimension taxonomy redesign (Form + Coverage replace Completeness; Readability absorbed into Clarity) | SP12 | open — plan at `plan-the-implementation-moonlit-shell.md` |
-| F3 | SP12 N×M emission fix — corpus-level finding via CrossFileContext or `primary_doc_path` manifest hint | CrossFileContext | open |
-| F6 | SP12 tokenizer contract test — parity fixture between jtbd-tool and rhetor-linter Jaccard | SP12 | open |
+| F3 | SP12 N×M spam — resolved-by-design: linter trusts manifest `coverage` verdict; no per-file Jaccard | — | ✅ resolved |
+| F6 | SP12 tokenizer parity — resolved-by-design: linter no longer tokenizes job text; F3 fix removes the need | — | ✅ resolved |
 | F8 | Document polling staleness as known limitation in server docs | server stub | open |
 | F10 | Server import constraint in CONTRIBUTING.md | server stub | open |
+| SP_VCS | Coverage.DocCodeDrift — git diff → conventional commit parsing → Jaccard against docs; `rhetoric-lint vcs-manifest` preprocessor | SP12 | backlog |
 | SP_FAQ | FAQ.SemanticMisrouting — detect FAQ entries that belong in another topic type | SP_GENRE | backlog |
 | SP_CONFIG_VCS | Per-project config revision tracking under `~/.rhetoric-lint/projects/` (bare git, no DB) | SP_CONFIG | backlog |
 | SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) | backlog |
@@ -149,11 +151,12 @@ TODO
     `const.FRONTMATTER_ALIASES`. Frontmatter `topic_type` overrides sections[0].
     Tests in `tests/test_f1_f2_f5.py`.
 
-  [FATAL F3] SP12 emits N×M spam (jobs × files) when coverage is missing.
-    jtbd-tool marks job coverage=="missing" corpus-wide → SP12 re-runs Jaccard per-file
-    and fires on every file by definition. 5 jobs × 50 files = 250 identical findings.
-    Fix: emit one corpus-level finding per missing job via CrossFileContext (SP1 done),
-    not one per file. Alternatively: require manifest to include primary_doc_path hint.
+  ✅ [FATAL F3] RESOLVED-BY-DESIGN (2026-06-08). Root cause was a boundary violation:
+    the linter was re-running Jaccard on job statement tokens against every doc file,
+    duplicating analysis jtbd-tool already performed and recorded in manifest.coverage.
+    Fix: jtbd-tool owns the coverage verdict. The linter trusts manifest.coverage=="missing"
+    and emits one finding per missing job (not per file). No re-tokenization, no re-Jaccard,
+    no CrossFileContext needed. See SP12 rule logic — updated below.
 
   [MAJOR F4] Density rate model needs minimum word floor.
     50-word stub with 3 findings = 60/1kw; 5000-word doc with 3 findings = 0.6/1kw.
@@ -171,10 +174,11 @@ TODO
     Resilience.*). `const.DIMENSION_MAP` update is part of SP_CONFIG implementation.
     Full dimension spec in `plan-the-implementation-moonlit-shell.md`.
 
-  [MAJOR F6] SP12 tokenizer parity has no contract test.
-    Plan says "reimplement _tokenize identically." Any drift in jtbd-tool stopwords
-    silently diverges Jaccard scores. Fix: shared contract fixture — fixed text + job
-    statement → expected Jaccard score — run against both tools in CI.
+  ✅ [MAJOR F6] RESOLVED-BY-DESIGN (2026-06-08). F6 existed because the linter
+    re-implemented jtbd-tool's _tokenize to re-run Jaccard independently. With F3 fixed
+    (linter trusts manifest verdict, no re-tokenization), the linter no longer tokenizes
+    job statement text at all. No shared tokenizer needed; no parity contract needed.
+    The boundary is the manifest: jtbd-tool computes coverage, linter reads the verdict.
 
   [MAJOR F7] jtbd-reporter integration scope — RESOLVED.
     jtbd-reporter was early ideation/prototype. jtbd-tool is the planned implementation
@@ -1191,6 +1195,261 @@ rhetoric-lint --rules Rhetoric.UnresolvedContrast --format text tests/fixtures/t
 
 ---
 
+## SP_VCS — `Coverage.DocCodeDrift` (git diff → Jaccard)
+
+**Status:** Backlog  
+**Depends on:** SP12 (manifest-consuming pattern in Coverage dimension)  
+**Scope:** Local dev tool. Not a server feature. No LLM, no embeddings, no new heavy deps.
+
+### Problem
+
+JTBD analysis catches strategic gaps: "job X has no doc at all." It cannot catch **drift**: "docs existed but went stale when the code changed." A JTBD audit of a stable product looks healthy; a VCS audit of the same product after a release surfaces freshness failures JTBD never sees. The two signals are complementary.
+
+### Design: two-step, manifest-consuming
+
+The linter is a pure function (text in → findings out). Git access cannot happen inside a rule. The pattern is identical to SP12:
+
+```
+rhetoric-lint vcs-manifest --since v1.2.0 > .rhetoric-vcs.json   # preprocessor
+rhetoric-lint --vcs-manifest .rhetoric-vcs.json docs/             # rule consumes manifest
+```
+
+The preprocessor step (`vcs-manifest`) runs outside the pure function, produces a JSON manifest, and the `Coverage.DocCodeDrift` rule consumes it via Jaccard — the same `overlap.py::set_overlap_metrics()` path that SP12 uses.
+
+### `rhetoric-lint vcs-manifest` — preprocessor subcommand
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--since REF` | last git tag (`git describe --tags --abbrev=0`) | Commit ref to start from (tag, SHA, branch) |
+| `--repo PATH` | `.` | Path to the git repo |
+| `--output PATH` | stdout | Write manifest JSON here instead of stdout |
+| `--user-facing-types` | `feat,fix,perf` | Comma-separated conventional commit types to include |
+| `--include-breaking` | always | `BREAKING CHANGE` footer or `!` suffix always included regardless of type filter |
+
+**Algorithm:**
+
+1. `git log <since>..HEAD --pretty=format:"%H %s" --name-only` to collect commits + changed file paths.
+2. Per commit, parse the subject line for Conventional Commits format:
+   - Pattern: `^(?P<type>\w+)(\((?P<scope>[^)]+)\))?(?P<breaking>!)?: (?P<summary>.+)`
+   - Detect `BREAKING CHANGE:` in commit body/footer as well.
+   - `is_user_facing = type in user_facing_types OR breaking`
+3. Skip commits where `is_user_facing == False`.
+4. For each surviving commit, collect added lines from `git diff <commit>^..<commit> -- '*.py' '*.ts' '*.go' '*.java' '*.rb'` (configurable extension list; docs files excluded by default).
+5. Tokenize added lines: lowercase, extract `\b[a-z_][a-z0-9_]{2,}\b` identifiers (same regex family as `_tokenize` in jtbd-tool), minus a stopword list (`const.VCS_STOPWORDS`). Remove single-char tokens and very common programming keywords (`def`, `return`, `import`, `class`, `const`, `var`, `let`, `for`, `if`, `else`, `true`, `false`, `null`).
+6. Deduplicate tokens within a commit scope (same scope may appear in multiple files — merge token sets).
+7. Emit manifest JSON.
+
+**Manifest format:**
+
+```json
+{
+  "version": 1,
+  "generated_at": "2026-06-08T14:00:00Z",
+  "since_ref": "v1.2.0",
+  "repo": "/path/to/repo",
+  "changes": [
+    {
+      "id": "abc123",
+      "type": "feat",
+      "scope": "auth",
+      "breaking": false,
+      "is_user_facing": true,
+      "summary": "add OAuth2 support",
+      "tokens": ["oauth2", "authenticate", "token", "refresh", "client_id", "pkce"]
+    },
+    {
+      "id": "def456",
+      "type": "fix",
+      "scope": null,
+      "breaking": false,
+      "is_user_facing": true,
+      "summary": "handle null response from deploy endpoint",
+      "tokens": ["deploy", "endpoint", "response", "null", "handle", "status"]
+    }
+  ]
+}
+```
+
+Fields rhetor-linter reads: `changes[].id`, `.summary`, `.scope`, `.breaking`, `.is_user_facing`, `.tokens`.
+
+**Fallback when no conventional commits:** If fewer than 30% of commits in range match the Conventional Commits pattern, emit a `meta` warning in the manifest and use commit subject tokens directly (tokenize the summary string). This degrades gracefully on repos without commit discipline.
+
+### `Coverage.DocCodeDrift` rule
+
+**File:** `rhetoric_lint/rules/vcs_coverage.py`
+
+**`const.py` additions:**
+
+```python
+VCS_MANIFEST_PATH: str = ""              # path to .rhetoric-vcs.json; empty = rule disabled
+VCS_COVERAGE_JACCARD_MIN: float = 0.25  # lower than JTBD (0.30) — diff tokens are noisier
+VCS_STOPWORDS: set = {                   # programming keywords to strip from diff tokens
+    "def", "return", "import", "class", "const", "var", "let",
+    "for", "if", "else", "elif", "true", "false", "null", "none",
+    "self", "this", "new", "type", "str", "int", "bool", "list",
+    "dict", "any", "none", "raise", "pass", "yield", "async", "await",
+}
+```
+
+**CLI flag:** `--vcs-manifest PATH` → sets `const.VCS_MANIFEST_PATH`
+
+**Severity mapping:**
+
+| Change type | `breaking` | Severity |
+|---|---|---|
+| `feat` | false | `warning` |
+| `fix` | false | `suggestion` |
+| any | true | `error` |
+
+Rationale: breaking changes have the highest obligation to be documented; new features are warnings; fixes are suggestions because the doc may remain accurate even if behavior changed slightly.
+
+**Rule logic (mirrors SP12):**
+
+```python
+def check(context: dict) -> list[dict]:
+    manifest_path = context["const"].VCS_MANIFEST_PATH
+    if not manifest_path:
+        return []
+    manifest = context.get("vcs_manifest")
+    if not manifest:
+        return []
+
+    threshold = context["const"].VCS_COVERAGE_JACCARD_MIN
+    findings = []
+    for change in manifest.get("changes", []):
+        if not change.get("is_user_facing"):
+            continue
+        change_tokens = set(change.get("tokens", []))
+        if not change_tokens:
+            continue
+
+        best = 0.0
+        for section in context["sections"]:
+            for para in section.get("paragraphs", []):
+                para_tokens = _tokenize(para["text"])
+                score = set_overlap_metrics(change_tokens, para_tokens)["jaccard"]
+                best = max(best, score)
+
+        if best < threshold:
+            severity = "error" if change.get("breaking") else (
+                "warning" if change.get("type") == "feat" else "suggestion"
+            )
+            scope_str = f" ({change['scope']})" if change.get("scope") else ""
+            findings.append({
+                "path":    context["path"],
+                "line":    1,
+                "column":  0,
+                "check":   "Coverage.DocCodeDrift",
+                "severity": severity,
+                "message": (
+                    f"{change['type']}{scope_str}: \"{change['summary']}\" "
+                    f"has no documentation coverage (best Jaccard: {best:.3f} < {threshold}). "
+                    f"Commit: {change['id'][:8]}"
+                ),
+            })
+    return findings
+```
+
+`_tokenize` here tokenizes doc paragraph prose (not code identifiers). Factor into `rhetoric_lint/rules/_tokenize.py` if a second rule needs the same prose tokenizer — `jtbd_coverage.py` no longer tokenizes anything, so this utility is SP_VCS-specific until another rule needs it.
+
+### How the two rules compose
+
+The two Coverage rules complement each other:
+
+| Rule | Signal source | What it catches |
+|---|---|---|
+| `Coverage.MissingJobCoverage` | JTBD manifest (intent-driven) | Strategic gaps: user jobs with no doc |
+| `Coverage.DocCodeDrift` | VCS manifest (history-driven) | Freshness gaps: code changed, doc not updated |
+
+Both live in the Coverage dimension. A doc that passes JTBD can still fail VCS drift, and vice versa.
+
+### Comparison to prior art
+
+Two tools share the "DocDrift" name; both were evaluated.
+
+Three tools were evaluated:
+
+**`cameronking4/docdrift`** (`@devinnn/docdrift`, TypeScript) — post-merge CI tool. Compares machine-exported API specs (OpenAPI, GraphQL, Swagger, Fern, Postman) against the published spec JSON; when structural drift is detected it opens a Devin AI session to write the fix and raise a PR. Path heuristics (`src/api/**` → `docs/api/`) are its only mechanism for non-spec content. Requires spec-generatable codebases; not applicable to general Markdown docs. One useful concept: **baseline tracking** — comparing against a known-good commit rather than the previous commit. SP_VCS's `--since REF` flag serves the same purpose.
+
+**`ayush698800/docwatcher`** (`docdrift` on PyPI, Python) — pre-commit tool. Tree-sitter AST extraction on staged diffs identifies changed functions/classes; ChromaDB + `all-MiniLM-L6-v2` embeddings find related doc sections; an LLM (Groq or local Ollama) renders a consistency verdict. Closest to SP_VCS in workflow (local, pre-push). Diverges on detection mechanism and dependency weight.
+
+**`mahimathacker/driftguard`** (`@driftguardjs/cli`, TypeScript) — snapshot-based CI gate for Web3/blockchain projects. No AI. Three deterministic layers: (1) Solidity ABI diffs via `@solidity-parser/parser` + Foundry/Hardhat artifacts, (2) TypeScript SDK export diffs via `ts-morph` (TS Compiler API), (3) **doc snippet compilation** — extracts fenced code blocks from Markdown/MDX via `remark-mdx`, creates a virtual TypeScript project with path-mapped package resolution, and runs `getPreEmitDiagnostics()` on each snippet. A snippet that no longer compiles is "stale." Deterministic, zero false positives. Applicable to typed languages only; not applicable to general prose documentation. One useful concept: **committed baseline snapshot** (`.driftguard/snapshot.json`) as an explicit approval artifact rather than implicit "last tag." An alternative to `--since REF` worth considering for a v2 flag (`--baseline-snapshot PATH`).
+
+SP_VCS comparison:
+
+| Aspect | DocWatcher | DriftGuard | SP_VCS |
+|---|---|---|---|
+| Signal | Git staged diff → AST | Snapshot diff (ABI + TS exports + snippets) | Git log since ref → conventional commit tokens |
+| Code extraction | Tree-sitter AST | ts-morph + ABI parser | Diff addition lines (identifiers only) |
+| Doc matching | Embeddings (ChromaDB) | TS compiler diagnostics | Jaccard (`overlap.py`) |
+| AI required | Yes (Groq/Ollama) | No | No |
+| Scope | Python/JS/TS symbols | Web3 typed contracts + SDK | Any language, commit-scoped |
+| User-facing filter | All changed symbols | All ABI/export changes | Conventional commit type filter |
+| New deps | chromadb, sentence-transformers, tree-sitter, gitpython | ts-morph, solc, ethers | gitpython only |
+| False positives | ~15–25% (LLM) | ~0% (compiler) | Low (token threshold) |
+| Fix suggestion | LLM-generated | None | None |
+| Cost | $0.50–$2/run | Free | Free |
+
+SP_VCS occupies the "free, offline, low-friction" position. DocWatcher catches more nuanced semantic drift at LLM cost; DriftGuard is zero-noise but only for typed-language snippet docs in Web3 stacks.
+
+### Pre-commit integration
+
+Add to `.pre-commit-hooks.yaml` (SP_CI already ships the hook infrastructure):
+
+```yaml
+- id: rhetoric-lint-vcs
+  name: rhetoric-lint doc drift
+  language: python
+  entry: bash -c 'rhetoric-lint vcs-manifest --since HEAD~1 > .rhetoric-vcs.json && rhetoric-lint --vcs-manifest .rhetoric-vcs.json docs/'
+  pass_filenames: false
+  stages: [pre-push]          # pre-push (not pre-commit): needs committed history
+```
+
+`pre-push` rather than `pre-commit` because `vcs-manifest` reads committed history; the working-tree changes are not yet committed at pre-commit stage.
+
+### Files
+
+**Create:**
+- `rhetoric_lint/rules/vcs_coverage.py` — `check(context)` + `_tokenize` (or import from shared util)
+- `rhetoric_lint/rules/_tokenize.py` — shared `_tokenize()` utility (factors out of `jtbd_coverage.py` too)
+- `tests/test_vcs_coverage.py`
+
+**Modify:**
+- `rhetoric_lint/main.py` — add `vcs-manifest` subcommand; add `--vcs-manifest PATH` flag to `check` command
+- `rhetoric_lint/engine.py` — load VCS manifest into `context["vcs_manifest"]` if `VCS_MANIFEST_PATH` set
+- `rhetoric_lint/const.py` — `VCS_MANIFEST_PATH`, `VCS_COVERAGE_JACCARD_MIN`, `VCS_STOPWORDS`
+- `rhetoric_lint/rules/jtbd_coverage.py` — remove `_tokenize`, `set_overlap_metrics` import, and per-file Jaccard loop; trust manifest `coverage` verdict directly
+- `.pre-commit-hooks.yaml` — add `rhetoric-lint-vcs` hook
+- `README.md` — add `Coverage.DocCodeDrift` to rules table
+
+### Tests (`tests/test_vcs_coverage.py`)
+
+- **Must-fire (feat, no doc coverage):** manifest with one `feat` change; doc fixture with unrelated text → `warning` at line 1.
+- **Must-fire (breaking, no doc coverage):** `breaking: true` change → `error` severity.
+- **Must-fire (fix, no doc coverage):** `fix` type → `suggestion` severity.
+- **Must-not-fire (coverage present):** change tokens overlap sufficiently with doc paragraph → no finding.
+- **Must-not-fire (is_user_facing false):** `chore` type change → no finding even with no doc coverage.
+- **Must-not-fire (empty tokens):** change with no tokens after stopword filtering → no finding.
+- **Must-not-fire (no manifest):** `VCS_MANIFEST_PATH = ""` → no finding, no crash.
+- **Must-not-fire (corpus):** full engine against `tests/fixtures/corpus/technical/` with a synthetic manifest of low-noise tokens that do appear in the fixture text → zero findings (confirms threshold tuning).
+- **`vcs-manifest` subcommand:** against a temp git repo with one conventional commit → manifest JSON valid, `changes` length > 0.
+- **`vcs-manifest --since` with non-tag ref (SHA):** works without crash.
+- **`vcs-manifest` fallback (no conventional commits):** manifest includes `meta.fallback: true`, changes have tokens from subject lines.
+- **`_tokenize` shared util:** same output as the inline version previously in `jtbd_coverage.py`.
+
+### Verification
+
+```bash
+rhetoric-lint vcs-manifest --since v1.0.0 --output .rhetoric-vcs.json
+rhetoric-lint --vcs-manifest .rhetoric-vcs.json docs/
+python -m pytest tests/test_vcs_coverage.py -v
+python -m pytest tests/ -v
+```
+
+---
+
 ## SP10 — DependencyReveal *(blocked on CrossFileContext)*
 
 **Goal:** Flag tool/concept references in a file that are used before they are defined anywhere in the scanned file set.
@@ -1273,24 +1532,26 @@ Detect nested ordered lists (ordered list item whose `nodes` contain a child ord
 
 File: `rhetoric_lint/rules/jtbd_coverage.py`
 
-Rule fires a `warning` finding for each job in the manifest where `coverage == "missing"` (i.e., no doc paragraph meets the Jaccard threshold). This connects jtbd-tool's scan output to rhetor-linter's per-file audit loop.
+Rule fires a `warning` finding for each job in the manifest where `coverage == "missing"`. jtbd-tool owns the coverage determination; the linter trusts the manifest verdict and emits one finding per missing job. The linter does **not** re-run Jaccard on job statement text — that is jtbd-tool's analysis, already recorded in the manifest.
+
+**Boundary:** jtbd-tool computes coverage (tokenizes job statements, tokenizes doc paragraphs, computes Jaccard, writes verdict). The manifest is the interface. The linter reads the verdict.
 
 #### Engine integration
 
 - New `const.py` additions:
   ```python
-  JTBD_MANIFEST_PATH: str = ""          # path to jtbd-manifest.json; empty = rule disabled
-  JTBD_COVERAGE_JACCARD_MIN: float = 0.30
+  JTBD_MANIFEST_PATH: str = ""   # path to jtbd-manifest.json; empty = rule disabled
   ```
 - New CLI flag: `--jtbd-manifest <path>` → sets `const.JTBD_MANIFEST_PATH`
-- Engine `main.py`: if `JTBD_MANIFEST_PATH` is set, load manifest JSON into `context["jtbd_manifest"]`
+- Engine `main.py`: if `JTBD_MANIFEST_PATH` is set, load manifest JSON into `context["jtbd_manifest"]`; load once per engine run, not per file.
 
 #### Rule logic
 
 ```python
 def check(context: dict) -> list[dict]:
-    manifest_path = context["const"].JTBD_MANIFEST_PATH
-    if not manifest_path:
+    # Only fire on the first file processed — one finding per missing job, not one per file.
+    # Engine sets context["is_first_file"] = True for the first path in the scan.
+    if not context.get("is_first_file"):
         return []
     manifest = context.get("jtbd_manifest")
     if not manifest:
@@ -1300,35 +1561,23 @@ def check(context: dict) -> list[dict]:
     for job in manifest.get("jobs", []):
         if job.get("coverage") != "missing":
             continue
-
-        # Compute Jaccard against all paragraphs in this file
-        job_tokens = _tokenize(job["statement_text"])
-        best = 0.0
-        for section in context["sections"]:
-            for para in section.get("paragraphs", []):
-                score = set_overlap_metrics(job_tokens, _tokenize(para["text"]))["jaccard"]
-                best = max(best, score)
-
-        threshold = context["const"].JTBD_COVERAGE_JACCARD_MIN
-        if best < threshold:
-            findings.append({
-                "path":    context["path"],
-                "line":    1,
-                "column":  0,
-                "check":   "Coverage.MissingJobCoverage",
-                "severity": "warning",
-                "message": (
-                    f"Job '{job['statement_text']}' ({job['job_map_step']}) "
-                    f"has no documentation coverage (best Jaccard: {best:.3f} < {threshold}). "
-                    f"SWEBOK ref: {job['swebok_ref']}"
-                ),
-            })
+        findings.append({
+            "path":     manifest.get("source_path", context["const"].JTBD_MANIFEST_PATH),
+            "line":     1,
+            "column":   0,
+            "check":    "Coverage.MissingJobCoverage",
+            "severity": "warning",
+            "message":  (
+                f"Job '{job['statement_text']}' ({job.get('job_map_step', '')}) "
+                f"has no documentation coverage. "
+                f"SWEBOK ref: {job.get('swebok_ref', '')}  "
+                f"(Jaccard: {job.get('jaccard_score', 0):.3f})"
+            ),
+        })
     return findings
 ```
 
-`_tokenize` mirrors `auditor.py` in jtbd-tool: lowercase, `\b[a-z]{2,}\b`, minus stopwords. Do **not** copy — import from a shared util module or reimplement identically (the two tools must not import each other).
-
-Use `overlap.py::set_overlap_metrics()` for the Jaccard call — never reimplement Jaccard in rule files (hard constraint from CONTRIBUTING.md).
+No `_tokenize`, no `set_overlap_metrics`, no Jaccard in this rule. The `jaccard_score` in the message is read from the manifest field jtbd-tool wrote — it is informational only.
 
 #### `const.py` severity/description entries
 
@@ -1341,10 +1590,13 @@ RULE_DESCRIPTIONS["Coverage.MissingJobCoverage"] = (
 
 #### Tests: `tests/test_jtbd_coverage.py`
 
-- **Must-fire**: synthetic manifest with one `coverage=missing` job; doc fixture with no matching text → assert finding emitted.
-- **Must-not-fire (coverage present)**: same manifest; doc fixture whose paragraph contains matching tokens (Jaccard ≥ 0.30) → assert no finding.
+- **Must-fire**: synthetic manifest with one `coverage=missing` job; `is_first_file=True` → assert one finding emitted with correct message.
+- **Must-not-fire (coverage present)**: manifest job with `coverage=covered` → assert no finding.
+- **Must-not-fire (coverage partial)**: manifest job with `coverage=partial` → assert no finding (partial is not a gap).
 - **Must-not-fire (no manifest)**: `JTBD_MANIFEST_PATH = ""` → assert no finding.
-- **Must-not-fire (corpus)**: full engine against `tests/fixtures/corpus/technical/` with real manifest produced by `jtbd-tool scan .` → zero findings (real docs are presumed to cover their own jobs).
+- **Must-not-fire (not first file)**: `is_first_file=False` → assert no finding (prevents N×M emission).
+- **One finding per job, not per file**: manifest with 3 missing jobs, engine run against 10 files → assert exactly 3 findings total.
+- **path is manifest path, not doc path**: finding `path` field equals the manifest path, not any scanned doc file.
 
 #### Manifest loading
 
@@ -1387,8 +1639,6 @@ This is just `mkdir` + stub files inside the existing repo — no new git repos 
 - `const.SCORE_MIN_WORDS = 150` — F4 scoring floor
 
 **Remaining Phase 0 items (open):**
-- F3: SP12 emission rework (corpus-level via CrossFileContext) — blocked on jtbd-tool Tier 3
-- F6: SP12 tokenizer contract test — blocked on jtbd-tool Tier 3
 - F8: Document polling staleness as known limitation (CONTRIBUTING.md note)
 - F9: `normalise_owner()` wired into engine F2 path (metadata.py exists; engine call not yet added)
 - F10: Server import constraint noted in CONTRIBUTING.md

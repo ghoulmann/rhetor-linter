@@ -414,17 +414,17 @@ jtbd-tool is the sole implementation and manifest source. No integration work ne
 Hard blockers (must complete before Phase 1): F3 (SP12 N×M emission), F8, F10.
 Soft blockers (can run in parallel with Phase 1): F6 (tokenizer contract test — testing only, no behaviour change).
 
-| Item | Blocker | File |
-|---|---|---|
-| Parse frontmatter into `context["frontmatter"]` (PyYAML) | F2 | `engine.py` |
-| Annotation pre-pass before `_blank_html_comments()` | F1 | `engine.py` |
-| `DIMENSION_MAP` in `const.py` (prefix → dimension) | F5 | `const.py` |
-| `rhetoric_lint/metadata.py` — frontmatter normalisation + owner → Backstage | F2, F9 | new file |
-| `rhetoric_lint/score.py` — `score_file()` + `ScoreResult` (boundary artifact) | — | new file |
-| `rhetoric-lint score` CLI command — calls `score_file()`, JSON to stdout | — | `main.py` |
-| Word-count minimum floor (150w) in score output | F4 | `score.py` |
-| SP12 emission model rework (corpus-level via CrossFileContext) | F3 | `jtbd_coverage.py` |
-| SP12 tokenizer contract test | F6 | `tests/test_jtbd_coverage.py` |
+| Item | Blocker | Status | File |
+|---|---|---|---|
+| Parse frontmatter into `context["frontmatter"]` (PyYAML) | F2 | ✅ done | `engine.py` |
+| Annotation pre-pass before `_blank_html_comments()` | F1 | ✅ done | `engine.py` |
+| `DIMENSION_MAP` in `const.py` (redesign pending SP_CONFIG) | F5 | ✅ done (old dims); redesign open | `const.py` |
+| `rhetoric_lint/metadata.py` — frontmatter normalisation + owner → Backstage | F2, F9 | ✅ done | `metadata.py` |
+| `rhetoric_lint/score.py` — `score_file()` + `ScoreResult` (boundary artifact) | — | ✅ done | `score.py` |
+| `rhetoric-lint score` CLI command — calls `score_file()`, JSON to stdout | — | ✅ done | `main.py` |
+| Word-count minimum floor (150w) in score output | F4 | ✅ done | `score.py` |
+| SP12 emission model rework (corpus-level via CrossFileContext) | F3 | open — hard blocker | `jtbd_coverage.py` |
+| SP12 tokenizer contract test | F6 | open — soft blocker | `tests/test_jtbd_coverage.py` |
 
 ### Phase 1 — Server MVP (~3–5 days)
 
