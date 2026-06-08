@@ -149,24 +149,20 @@ comparisons.
 ### Five curated dimensions
 
 Industry ceiling is ~7 dimensions (Acrolinx: 7, Grammarly: 5). Five chosen here.
-Mapping must be committed to `const.py` as `DIMENSION_MAP` before scoring is built.
+Source of truth is `const.DIMENSION_MAP` (const.py) — update there first, not here.
+`const.DIMENSION_DEFAULT = "Style"` for any check prefix not matched.
 
-Implemented in `const.DIMENSION_MAP` (const.py:591). `const.DIMENSION_DEFAULT = "Style"` for
-any check prefix not listed. Source of truth is const.py — do not edit this table independently.
+**Redesigned 2026-06-08** — `Completeness` retired (category error); `Readability` absorbed into Clarity. Full spec in `plan-the-implementation-moonlit-shell.md` (SP_CONFIG). Implementation pending.
 
-| Dimension | Prefixes (from const.py) |
-|---|---|
-| **Clarity** | `Rhetoric`, `Attention`, `Cohesion`, `Coherence` |
-| **Structure** | `Heading`, `Symmetry`, `Structure`, `Navigation` |
-| **Completeness** | `Completeness`, `Resilience`, `Curriculum` |
-| **Style** | `Unity`, `Lexical`, `Terminology`, `Rhetoric.TrivializingLanguage`, `Rhetoric.Terminology`, `Rhetoric.Inclusivity`, `Rhetoric.InclusivityFlag`, `Clarity.FleschReadingEase`, `Clarity.Nominalizations`, `Clarity.PrepositionalDensity` |
-| **Readability** | `Rhetoric.ReadabilityGrade`, `Clarity.FleschReadingEase` |
+| Dimension | Prefixes | What it measures |
+|---|---|---|
+| **Clarity** | `Rhetoric`, `Attention`, `Cohesion`, `Coherence`, `Rhetoric.ReadabilityGrade`, `Clarity.FleschReadingEase`, `Clarity.Nominalizations`, `Clarity.PrepositionalDensity` | Prose quality + readability |
+| **Structure** | `Heading`, `Symmetry`, `Structure`, `Navigation` | Document shape and navigation |
+| **Style** | `Unity`, `Lexical`, `Terminology`, `Rhetoric.TrivializingLanguage`, `Rhetoric.Terminology`, `Rhetoric.Inclusivity`, `Rhetoric.InclusivityFlag` | Word-level choices and terminology |
+| **Form** | `HowTo`, `ADR`, `Tutorial` | Template adherence for topic type |
+| **Coverage** | `Coverage`, `Resilience`, `Substance`, `JTBD`, `Curriculum` | Depth, relevance, user needs served |
 
-**Note:** `Clarity.FleschReadingEase` appears in both Style and Readability — verify
-whether this double-counts or is intentional (Style catches the YAML rule instance,
-Readability catches the metric computation). Resolve before scoring is built.
-
-Vale YAML rules from `styles/*/` inherit dimension via a `dimension:` key in `meta.json`
+Vale YAML rules from `style-sets/*/` inherit dimension via a `dimension:` key in `meta.json`
 (field to be added to meta.json spec; fall back to `DIMENSION_DEFAULT` if absent).
 
 ### Diataxis per-topic breakdown
@@ -177,12 +173,14 @@ classified. This is the core differentiator — no other tool does topic-type-aw
 Example: a file with mixed concept + how-to sections:
 ```
 docs/deploy.md  (1240 words)
-  Clarity        1.8/1kw overall
-    [concept]    1.2/1kw
-    [how-to]     3.4/1kw  ← hotspot
-  Structure      0.6/1kw
-  Completeness   2.1/1kw
-    [how-to]     4.8/1kw  ← hotspot
+  Clarity    1.8/1kw overall
+    [concept]  1.2/1kw
+    [how-to]   3.4/1kw  ← hotspot
+  Structure  0.6/1kw
+  Style      0.4/1kw
+  Form       0.9/1kw
+  Coverage   2.1/1kw
+    [how-to]   4.8/1kw  ← hotspot
 ```
 
 Files with no classifiable topic structure show file-level density only (no empty rows).
@@ -220,11 +218,11 @@ Shields.io endpoint: `GET /badge/{owner}/{repo}.json`
     "author": ["jane.smith"]
   },
   "dimensions": {
-    "Clarity":      {"rate": 1.8, "count": 22},
-    "Structure":    {"rate": 0.6, "count":  8},
-    "Completeness": {"rate": 2.1, "count": 26},
-    "Style":        {"rate": 0.4, "count":  5},
-    "Readability":  {"fre": 58.2, "fk_grade": 9.1}
+    "Clarity":   {"rate": 1.8, "count": 22},
+    "Structure": {"rate": 0.6, "count":  8},
+    "Style":     {"rate": 0.4, "count":  5},
+    "Form":      {"rate": 0.9, "count": 11},
+    "Coverage":  {"rate": 2.1, "count": 26}
   },
   "sections": [
     {
@@ -234,8 +232,8 @@ Shields.io endpoint: `GET /badge/{owner}/{repo}.json`
       "word_count": 340,
       "metadata": {"audience": ["devops"], "sdlc_phase": ["deployment"]},
       "dimensions": {
-        "Clarity":      {"rate": 3.4, "count": 12},
-        "Completeness": {"rate": 4.8, "count": 16}
+        "Clarity":  {"rate": 3.4, "count": 12},
+        "Coverage": {"rate": 4.8, "count": 16}
       },
       "findings": [
         {"check": "Cohesion.Break", "line": 42, "severity": "warning",
@@ -391,9 +389,9 @@ jtbd-reporter is retired (was early ideation); jtbd-tool is the sole implementat
 SP12 (`rhetoric_lint/rules/jtbd_coverage.py`) reads `jtbd-manifest.json` produced by
 `jtbd-tool scan` and fires a warning per job with `coverage == "missing"`.
 
-**Status:** Not yet implemented. Blocked on jtbd-tool Tier 3 (stable API at localhost:8080).
+**Status: ✅ Implemented (2026-06-07).** jtbd-tool Tier 3 complete. `--jtbd-manifest` CLI flag live.
 
-**F3 fix required before implementation:** Current spec emits one finding per file per
+**F3 fix still open:** Current implementation emits one finding per file per
 missing job → N×M spam (5 jobs × 50 files = 250 identical findings). Fix options:
 
 - *Preferred:* Emit one corpus-level finding per missing job via `CrossFileContext`
@@ -413,7 +411,8 @@ jtbd-tool is the sole implementation and manifest source. No integration work ne
 
 ### Phase 0 — Engine prerequisites (this repo)
 
-Must complete before server build begins. All are prerequisite fixes.
+Hard blockers (must complete before Phase 1): F3 (SP12 N×M emission), F8, F10.
+Soft blockers (can run in parallel with Phase 1): F6 (tokenizer contract test — testing only, no behaviour change).
 
 | Item | Blocker | File |
 |---|---|---|
@@ -433,28 +432,65 @@ Must complete before server build begins. All are prerequisite fixes.
 
 - FastAPI app + GitHub OAuth
 - APScheduler polling (config YAML sources)
-- SQLite store (score JSON per run per file)
+- SQLite store (score JSON per run per file) — **append-only; never overwrite history**
 - Badge endpoint (`/badge/{owner}/{repo}.json`)
 - `rhetoric-lint serve` entry point
 
-### Phase 2 — Dashboard (~3–4 days)
+### Phase 2 — Dashboard + PR Gates + Alerts (~4–6 days)
 
 - Jinja2 HTML dashboard: repo list → doc list → dimension drill-down → findings
 - Per-topic Diataxis breakdown view
-- Trend charts (score over last N runs)
-- Settings UI (`/settings`): add/remove repos, configure paths
+- **Trend charts**: score over last N runs; highlight regressions and improvements
+- Settings UI (`/settings`): add/remove repos, configure paths and quality thresholds
+- **PR inline annotations**: GitHub/GitLab status check per PR; post review comments for findings on changed lines; configurable merge gate (fail if worst-dimension density > threshold)
+- **Score degradation alerts**: Slack webhook / email digest when any governed repo crosses a configured threshold; weekly summary of worst-deteriorating docs per owner
 
-### Phase 3 — Public polling + static export (~2–3 days)
+### Phase 3 — History, Insights, and Lessons (~4–5 days)
+
+This phase turns stored scan history into organizational intelligence.
+
+**Change history per KB:**
+- Full append-only scan log: every run is a timestamped record (never overwritten)
+- Per-file score delta: `Δ Clarity = +0.4/1kw since last week` — surfaced in dashboard and badge tooltip
+- Annotation of *why* a score changed: correlate score deltas with git commit metadata (commit message, author, changed line count) when the repo is polled via git clone
+- `GET /history/{owner}/{repo}/{path}` — time-series score JSON for any file
+
+**Insights derived from history:**
+- Regression detector: files whose score has worsened ≥ N% over the trailing window → flagged in dashboard and alert
+- Improvement highlights: files that improved significantly — surfaced as positive signal, not just problem-finding
+- Phase patterns: score by `sdlc_phase` tag over time — "your deployment docs degrade every quarter"
+- Owner health trends: per-team quality trajectory (aggregate, not per-author unless opted in)
+- JTBD coverage drift: track `Coverage.MissingJobCoverage` findings over time — are jobs getting covered or accumulating?
+
+**Lessons for others (cross-repo / cross-org benchmarking):**
+- Opt-in anonymized aggregate: repos that consent contribute dimension scores (not content) to a shared pool
+- Benchmark view: "your Clarity score is 2.1/1kw; median for repos tagged `kubernetes` is 1.4/1kw"
+- Pattern library: when a repo shows sustained improvement in a dimension, record what structural changes (more how-to sections, shorter sentences, added prerequisites) correlated with improvement — surfaced as "what tends to work" guidance
+- Improvement playbooks: server generates a ranked list of highest-ROI changes per repo based on what moved the needle for similar repos in history
+- Privacy constraint: no content leaves the server — only aggregate numeric scores and metadata tags are used for cross-repo benchmarks
+
+**Store schema additions for Phase 3:**
+```
+scan_run:        id, repo, scanned_at, commit_sha, commit_message, changed_files[]
+file_score:      id, scan_run_id, path, word_count, dimensions{}, findings_count
+file_score_delta:file_score_id, prev_file_score_id, Δdimensions{}
+insight:         id, repo, insight_type, generated_at, payload_json
+benchmark_pool:  repo_slug_hash, tag[], dimension_scores{}  ← anonymized opt-in only
+```
+
+### Phase 4 — Public polling + static export + auto-fix PRs (~2–3 days)
 
 - Git clone poller for GitHub + GitLab public repos
 - Static dashboard export (for GH Pages deployment option)
 - `rhetor-sources.yaml` config format
+- **Auto-fix PR generation**: server opens a PR with `--fix` applied to the top-N fixable findings; requires write token; opt-in per repo
 
-### Phase 4 — Backstage plugin (separate repo, TypeScript)
+### Phase 5 — Backstage plugin (separate repo, TypeScript)
 
-- Catalog entity page: owner doc health panel
+- Catalog entity page: owner doc health panel + trend sparkline
 - TechDocs page: reader quality chip
-- Reads from Phase 1 server API
+- Reads from Phase 1–3 server API
+- **Lessons panel**: surface "what worked for similar repos" insights inline in Backstage
 
 ---
 
@@ -467,8 +503,12 @@ Must complete before server build begins. All are prerequisite fixes.
 | Private repo strategy (token pooling vs per-org token) | Defer to post-MVP |
 | Backstage plugin repo: separate vs monorepo | **Resolved** — separate repo (TypeScript, own cadence) |
 | `meta.json` `dimension:` field for Vale style dirs | Define when DIMENSION_MAP is written (F5) |
-| jtbd-tool Tier 3 ETA | Needed to unblock SP12 |
+| jtbd-tool Tier 3 ETA | **Resolved** — jtbd-tool Tier 3 complete (REST API, clusterer, actor routing) |
 | Server graduation to own repo | When: different deploy cadence, second backend, or dedicated contributor |
+| PR annotation token scope | Read-only token for polling; separate write token for PR comments + auto-fix PRs; opt-in per repo |
+| Cross-repo benchmark opt-in UX | Checkbox in `/settings` per repo; explicit consent; hash repo slug before storing |
+| History retention policy | Append-only indefinitely (SQLite → Postgres); configurable max-age purge per deployment |
+| Insight generation: scheduled vs on-demand | Scheduled (nightly) for trend/phase patterns; on-demand for playbook generation |
 
 ---
 
@@ -478,7 +518,7 @@ Before any Phase 1 server code is written, these must be resolved:
 
 - [x] **F1** — Section annotation pre-pass in engine.py ✓ (implemented, see `_extract_section_annotations()`)
 - [x] **F2** — Frontmatter parsed into `context["frontmatter"]` ✓ (`const.FRONTMATTER_ALIASES`, engine.py:279)
-- [ ] **F3** — SP12 emission model reworked (corpus-level, not per-file)
+- [ ] **F3** — SP12 emission model reworked (corpus-level, not per-file) — hard blocker for Phase 1
 - [x] **F4** — 150-word minimum floor in score output ✓ (`const.SCORE_MIN_WORDS = 150`, `score.py` skeleton)
 - [x] **F5** — `DIMENSION_MAP` written and committed to `const.py` ✓ (const.py:591)
 - [ ] **F6** — SP12 tokenizer contract test passing
