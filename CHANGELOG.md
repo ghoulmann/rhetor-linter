@@ -46,6 +46,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - `score.py`: `{**dimension_map, dimension_default}` syntax error (was never imported by tests; caught on first CLI run)
+- `Symmetry.Parallelism`: items containing Markdown links received out-of-bounds positions from the engine's fallback (`pos = pointer` when `_node_text()` strips link syntax and pattern search fails); these overflowed items were grouped into a spurious mega-list and all findings reported at line `len(text)+1`; fix filters items with `start >= len(text)` before grouping
 - Lexi NaN guard: `coleman_liau_index` NaN now clamps to 0.0 matching Rebilly/lexi reference behaviour
 - Exception matching in existence/substitution rules now searches full line text (not just matched token), fixing multi-word exceptions like `lame duck`
 - `_blank_html_comments` no longer strips section annotation blocks (F1 pre-pass runs first)

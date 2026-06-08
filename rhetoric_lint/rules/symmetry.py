@@ -175,6 +175,14 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                 return True
         return False
 
+    # Drop AST items whose positions overflowed past end-of-text.
+    # This happens when _node_text() strips Markdown link syntax and the
+    # engine's pattern search fails to relocate the item; the fallback sets
+    # pos = pointer which can accumulate past len(text).  Such items form a
+    # spurious mega-group at line len(text)+1 and produce bogus findings.
+    text_len = len(text)
+    ast_list_items = [i for i in ast_list_items if 0 <= i["start"] < text_len]
+
     # Convert AST list items into pseudo-match objects compatible with grouping logic
     if ast_list_items:
         class _M:
