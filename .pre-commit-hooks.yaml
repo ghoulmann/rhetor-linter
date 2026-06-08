@@ -1,0 +1,15 @@
+- id: rhetoric-lint
+  name: rhetoric-lint
+  description: Lint Markdown files for rhetorical and structural quality.
+  language: python
+  entry: rhetoric-lint lint --format text --min-severity warning
+  types: [markdown]
+  pass_filenames: true
+
+- id: rhetoric-lint-error
+  name: rhetoric-lint (errors only)
+  description: Fail only on error-severity findings (missing H1, missing result verification).
+  language: python
+  entry: rhetoric-lint lint --format text --min-severity error
+  types: [markdown]
+  pass_filenames: true
