@@ -1672,3 +1672,225 @@ Component names under the org:
 | Auditor | `laxa` | From halaxa — the normative path |
 
 Action at Gate 3: create GitHub org, transfer repos, update CI config and install paths in docs.
+
+---
+
+## Addendum: Editorial Gaps Integration (wiggly-sunbeam)
+
+Source: full evaluation of `/home/rik/writing/ideation/tool/index.html` (37 concerns) against current rhetor-linter coverage, 2026-06-09. All SP1–SP12 complete. New SPs are independent of each other and of SP_CONFIG/SP_VCS/SP10/SP11.
+
+Updated dependency graph (append to existing graph):
+
+```
+Independent (after SP1):
+ ├── SP13: Rhetoric.FalseDilemma (binary_framing.py)  [backlog]
+ ├── SP14: Structure.ChunkBoundary + Structure.ChunkTooShort (chunk.py)  [backlog]
+ ├── SP15: Clarity.TokenBudget (Vale metric YAML)  [backlog]  — depends SP4
+ ├── SP16: Structure.ParagraphLength (extend unity.py)  [backlog]
+ ├── SP17: Cohesion.ConnectiveMismatch (signposting.py)  [backlog]
+ └── SP18: Clarity.OxfordComma + Clarity.QuoteStyle (2 Vale consistency YAMLs)  [backlog]  — depends SP4
+```
+
+| # | Subplan | Depends on | Status |
+|---|---|---|---|
+| SP13 | Rhetoric.FalseDilemma — detect false dilemma / binary framing in prose | SP1 | backlog |
+| SP14 | Structure.ChunkBoundary / Structure.ChunkTooShort — section word-count RAG-optimisation check | SP1 | backlog |
+| SP15 | Clarity.TokenBudget — document total word-count threshold (Vale metric YAML) | SP4 | backlog |
+| SP16 | Structure.ParagraphLength — extend unity.py: flag paragraphs > 150 words | SP1 | backlog |
+| SP17 | Cohesion.ConnectiveMismatch — causal connective with no causal predecessor (signposting.py) | SP1, SP8 | backlog |
+| SP18 | Clarity.OxfordComma + Clarity.QuoteStyle — punctuation consistency (Vale consistency YAMLs) | SP4 | backlog |
+
+Suggested execution order by ROI: SP16 → SP14 → SP13 → SP15 → SP18 → SP17.
+
+---
+
+### SP13 — Rhetoric.FalseDilemma
+
+**Gap:** `struct-falsedilemma` — credibility-severity concern; no automation anywhere.
+
+**Files:**
+- New `rhetoric_lint/rules/binary_framing.py`
+- `rhetoric_lint/engine.py` — add `"binary_framing"` to rule load list
+- `rhetoric_lint/const.py` — add to `RULE_DESCRIPTIONS`, `RULE_SEVERITY_LEVELS`
+- `tests/test_binary_framing.py`
+
+**Implementation:**
+- Token-level spaCy match on `doc` sentences: "either … or" without a third alternative branch, "only two options/choices", "only X or Y", "no other option/choice/way"
+- Pattern set (4–6 surface forms) stored in `const.FALSE_DILEMMA_PATTERNS: list`
+- Emit per-sentence; minimum 6 alpha tokens per sentence guard
+- Dimension: `Clarity` (Rhetoric.* prefix already in DIMENSION_MAP)
+- Severity: `warning`
+- False-positive gate: zero findings on `tests/fixtures/corpus/technical/`
+- Genre gate: none (fire on all genres — ADRs and concept docs are the primary targets but howtos can contain false dilemmas too)
+
+---
+
+### SP14 — Structure.ChunkBoundary + Structure.ChunkTooShort
+
+**Gap:** `comp-chunkability` — functional-severity concern; RAG retrieval impact.
+
+**Files:**
+- New `rhetoric_lint/rules/chunk.py`
+- `rhetoric_lint/engine.py` — add `"chunk"` to rule load list
+- `rhetoric_lint/const.py` — add `CHUNK_TARGET_MAX = 500`, `CHUNK_TARGET_MIN = 80`, add to descriptions/severities
+- `tests/test_chunk.py`
+
+**Implementation:**
+- Walk `context["sections"]`; for each section: count total paragraph word tokens (`sum(len(p["text"].split()) for p in sec["paragraphs"])`)
+- Skip pure-code sections: if all paragraph nodes are `CodeFence`/`Code` type, skip
+- Skip changelog/readme genres: check `context["genre"]` against `frozenset({"changelog", "readme"})`
+- Emit `Structure.ChunkBoundary` (warning) when word count > `const.CHUNK_TARGET_MAX`
+- Emit `Structure.ChunkTooShort` (suggestion) when 0 < word count < `const.CHUNK_TARGET_MIN` and section is not H1 and not in `const.GENERIC_HEADINGS`
+- Dimension: `Structure` (Structure.* prefix in DIMENSION_MAP)
+- Line: `sec["start"]` line
+
+---
+
+### SP15 — Clarity.TokenBudget
+
+**Gap:** `comp-token-budget` — functional-severity concern; AI/LLM pipeline users.
+
+**Files:**
+- New `style-sets/Clarity/TokenBudget.yml`
+- `rhetoric_lint/const.py` — add `TOKEN_BUDGET_MAX_WORDS: int = 5000`
+
+**Implementation (Vale metric YAML):**
+```yaml
+extends: metric
+message: "Document word count (%s) exceeds TOKEN_BUDGET_MAX_WORDS — consider splitting for LLM context budget."
+level: warning
+scope: summary
+formula: |
+  words
+condition: "> 5000"
+```
+
+Config override: `TOKEN_BUDGET_MAX_WORDS` in `.rhetoric-lint.yaml` maps to this threshold (same pattern as existing metric rule overrides in `vale_style.py`).
+
+**DIMENSION_MAP note:** `Clarity.TokenBudget` currently lands in `Style` bucket (all Vale YAML rules default there). If it should land in `Clarity`, add `"Clarity.TokenBudget"` explicitly to the Clarity list in `DIMENSION_MAP`. Decide at implementation — either is defensible.
+
+---
+
+### SP16 — Structure.ParagraphLength
+
+**Gap:** `struct-paragraph` (partial) — `unity.py` covers topic overlap but not word-count enforcement.
+
+**Files:**
+- `rhetoric_lint/rules/unity.py` — add paragraph length check after existing section loop
+- `rhetoric_lint/const.py` — add `PARAGRAPH_MAX_WORDS: int = 150`, add to descriptions/severities
+
+**Implementation:**
+- After the existing `for sec in sections:` loop in `unity.py check()`, add a second pass:
+  ```python
+  for sec in sections:
+      for para in sec.get("paragraphs", []):
+          nodes = para.get("nodes") or []
+          # skip pure-code paragraphs
+          if nodes and all(n.get("type") in {"CodeFence", "Code"} for n in nodes):
+              continue
+          word_count = len(para.get("text", "").split())
+          if word_count > para_max:
+              issues.append({...check: "Structure.ParagraphLength"...})
+  ```
+- Read `para_max = int(getattr(const, "PARAGRAPH_MAX_WORDS", 150))`
+- Emit at `para["line"]`; column 1
+- Dimension: `Structure` (Structure.* prefix)
+- Severity: `warning`
+
+---
+
+### SP17 — Cohesion.ConnectiveMismatch
+
+**Gap:** `struct-signposting` (partial) — `forward_ref.py` catches forward references; connective label vs. logical relation not yet checked.
+
+**Files:**
+- New `rhetoric_lint/rules/signposting.py`
+- `rhetoric_lint/engine.py` — add `"signposting"` to rule load list
+- `rhetoric_lint/const.py` — `SIGNPOSTS["causal"]` already present; add `CONNECTIVE_MISMATCH_JACCARD_MIN: float = 0.08`, add to descriptions/severities
+- `tests/test_signposting.py`
+
+**Implementation:**
+- For each paragraph, iterate sentence pairs (prev, curr)
+- If `curr` sentence begins with a token from `const.SIGNPOSTS["causal"]` (within first 5 tokens):
+  - Compute content Jaccard of prev and curr sentence tokens using existing `channelize_tokens` + `set_overlap_metrics` from `overlap.py`
+  - If overlap < `CONNECTIVE_MISMATCH_JACCARD_MIN` (0.08) AND prev sentence has no causal dep arc (dep `"advcl"` or `"csubj"` from root), emit `Cohesion.ConnectiveMismatch` suggestion
+- Minimum guard: skip if prev sentence < 6 alpha tokens
+- Heuristic — tune threshold against corpus before merging; start conservative (low recall is preferable to false positives)
+- Dimension: `Clarity` (Cohesion.* prefix)
+- Severity: `suggestion` (conservative — connective mismatch is often a style issue, not a hard error)
+
+---
+
+### SP18 — Clarity.OxfordComma + Clarity.QuoteStyle
+
+**Gap:** `micro-punctuation` — cosmetic but fully automatable Vale consistency rules.
+
+**Files:**
+- New `style-sets/Clarity/OxfordComma.yml`
+- New `style-sets/Clarity/QuoteStyle.yml`
+- `rhetoric_lint/const.py` — add to `RULE_DESCRIPTIONS`, `RULE_SEVERITY_LEVELS`
+
+**Implementation:**
+
+`OxfordComma.yml`:
+```yaml
+extends: consistency
+message: "Oxford comma inconsistency: '%s' — use one style throughout."
+level: suggestion
+scope: sentence
+either:
+  Oxford: '\b\w+, \w+, and \w+'
+  NoOxford: '\b\w+, \w+ and \w+'
+```
+
+`QuoteStyle.yml`:
+```yaml
+extends: consistency
+message: "Quote style inconsistency: '%s' — use straight or smart quotes consistently."
+level: suggestion
+scope: sentence
+either:
+  Smart: '[“”]'
+  Straight: '"'
+```
+
+Both rules fire only when both forms appear in the same document (that is the `consistency` extension's contract). Severity: `suggestion`.
+
+---
+
+### const.py additions (summary)
+
+```python
+# SP13
+FALSE_DILEMMA_PATTERNS: list = [
+    r"either\b.{1,60}\bor\b",
+    r"\bonly\s+two\s+(options?|choices?|alternatives?)\b",
+    r"\bno\s+other\s+(option|choice|alternative|way)\b",
+    r"\bit['']s\s+(either|only)\b",
+]
+
+# SP14
+CHUNK_TARGET_MAX: int = 500
+CHUNK_TARGET_MIN: int = 80
+
+# SP15
+TOKEN_BUDGET_MAX_WORDS: int = 5000
+
+# SP16
+PARAGRAPH_MAX_WORDS: int = 150
+
+# SP17 (SIGNPOSTS["causal"] already in const.py)
+CONNECTIVE_MISMATCH_JACCARD_MIN: float = 0.08
+```
+
+### Verification (all 6 SPs)
+
+```bash
+pipenv run python -m pytest tests/test_binary_framing.py tests/test_chunk.py tests/test_signposting.py -q
+pipenv run python -m pytest tests/test_unity.py -q          # SP16 regression
+make test                                                     # full suite
+make lint-self                                                # zero new false positives on docs/
+rhetoric-lint --style-dir style-sets/ --style Clarity docs/api.md  # SP15, SP18
+```
+
+False-positive gate: zero new findings on `tests/fixtures/corpus/technical/` after any SP merge.

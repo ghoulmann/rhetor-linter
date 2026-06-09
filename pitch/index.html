@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chancery Labs — Documentation Quality You Can Measure and Ship</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #0f0e0d;
+  --paper: #f7f4ef;
+  --warm-white: #faf8f5;
+  --mid: #7a736a;
+  --rule: #d8d0c4;
+
+  --shela: #1a3a2a;
+  --shela-accent: #2d6a4f;
+  --shela-light: #e8f2ec;
+
+  --syla: #1a1a3a;
+  --syla-accent: #3d3d8a;
+  --syla-light: #eeeef8;
+
+  --laxa: #3a1a00;
+  --laxa-accent: #a04000;
+  --laxa-light: #fdf0e8;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Instrument Sans', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 48px;
+  background: rgba(247,244,239,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.nav-brand {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 36px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mid);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--ink); }
+
+.nav-cta { display: flex; gap: 12px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  font-family: 'Instrument Sans', sans-serif;
+  transition: opacity 0.2s, border-color 0.2s, background 0.2s;
+}
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { opacity: 0.85; }
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+.btn-ghost:hover { border-color: var(--ink); background: rgba(15,14,13,.03); }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 48px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -200px; right: -200px;
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(45,106,79,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 28px;
+}
+
+.hero h1 {
+  font-size: clamp(3rem, 6.5vw, 6.5rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  max-width: 900px;
+  margin-bottom: 36px;
+}
+
+.hero-desc {
+  font-size: 1.1rem;
+  color: var(--mid);
+  max-width: 600px;
+  line-height: 1.7;
+  margin-bottom: 52px;
+}
+
+.hero-cta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-rule {
+  position: absolute;
+  bottom: 0; left: 48px; right: 48px;
+  height: 1px;
+  background: var(--rule);
+}
+
+/* ── PHILOSOPHY STRIP ── */
+.philosophy {
+  padding: 72px 48px;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 64px;
+  align-items: start;
+}
+
+.philosophy-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mid);
+  padding-top: 6px;
+}
+
+.philosophy-text {
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.philosophy-text strong { font-weight: 600; }
+
+/* ── STATS STRIP ── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--rule);
+}
+
+.stats-strip .stat {
+  padding: 40px 40px;
+  border-right: 1px solid var(--rule);
+}
+.stats-strip .stat:last-child { border-right: none; }
+
+.stat-num {
+  font-size: 2.8rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.82rem;
+  color: var(--mid);
+  line-height: 1.4;
+}
+
+/* ── SUITE ── */
+.suite {
+  padding: 80px 48px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  margin-bottom: 56px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.section-header h2 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.section-header .count {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--mid);
+  letter-spacing: 0.1em;
+}
+
+/* ── PRODUCT BLOCK ── */
+.product-block {
+  margin-bottom: 80px;
+  padding-bottom: 80px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.product-block:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.product-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  margin-bottom: 48px;
+  align-items: start;
+}
+
+.product-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.product-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 2px;
+}
+
+.product-role {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--mid);
+  letter-spacing: 0.08em;
+}
+
+.product-name {
+  font-size: clamp(2.4rem, 4vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+
+.product-tagline {
+  font-size: 1rem;
+  color: var(--mid);
+  line-height: 1.65;
+  max-width: 460px;
+}
+
+.product-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-self: end;
+}
+
+.product-stat {
+  padding: 22px;
+  background: var(--warm-white);
+  border: 1px solid var(--rule);
+}
+
+.product-stat-num {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+
+.product-stat-label {
+  font-size: 0.78rem;
+  color: var(--mid);
+  line-height: 1.4;
+}
+
+/* ── PROBLEM CARDS ── */
+.problems-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.problem-card {
+  background: var(--warm-white);
+  border: 1px solid var(--rule);
+  padding: 24px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.problem-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.problem-card:hover {
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(15,14,13,0.08);
+}
+
+.problem-card:hover::before { opacity: 1; }
+
+.problem-id {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--mid);
+  margin-bottom: 10px;
+}
+
+.problem-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  color: var(--ink);
+}
+
+.problem-impact {
+  font-size: 0.8rem;
+  color: var(--mid);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-arrow {
+  position: absolute;
+  bottom: 20px; right: 20px;
+  font-size: 0.9rem;
+  color: var(--rule);
+  transition: color 0.2s, transform 0.2s;
+}
+
+.problem-card:hover .card-arrow { transform: translate(2px, -2px); }
+
+/* ── PRODUCT COLOR THEMES ── */
+.shela .product-tag { background: var(--shela-light); color: var(--shela-accent); }
+.shela .product-name { color: var(--shela); }
+.shela .product-stat-num { color: var(--shela-accent); }
+.shela .problem-card::before { background: var(--shela-accent); }
+.shela .problem-card:hover { box-shadow: 0 8px 32px rgba(45,106,79,0.12); }
+.shela .card-arrow { color: var(--shela-accent); }
+
+.syla .product-tag { background: var(--syla-light); color: var(--syla-accent); }
+.syla .product-name { color: var(--syla); }
+.syla .product-stat-num { color: var(--syla-accent); }
+.syla .problem-card::before { background: var(--syla-accent); }
+.syla .problem-card:hover { box-shadow: 0 8px 32px rgba(61,61,138,0.12); }
+.syla .card-arrow { color: var(--syla-accent); }
+
+.laxa .product-tag { background: var(--laxa-light); color: var(--laxa-accent); }
+.laxa .product-name { color: var(--laxa); }
+.laxa .product-stat-num { color: var(--laxa-accent); }
+.laxa .problem-card::before { background: var(--laxa-accent); }
+.laxa .problem-card:hover { box-shadow: 0 8px 32px rgba(160,64,0,0.12); }
+.laxa .card-arrow { color: var(--laxa-accent); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,14,13,0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-panel {
+  background: var(--warm-white);
+  width: 540px;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 48px 40px 72px;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  border-left: 1px solid var(--rule);
+}
+
+.modal-overlay.open .modal-panel { transform: translateX(0); }
+
+.modal-close {
+  position: absolute;
+  top: 24px; right: 24px;
+  background: none;
+  border: 1px solid var(--rule);
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--mid);
+  transition: border-color 0.2s, color 0.2s;
+}
+.modal-close:hover { border-color: var(--ink); color: var(--ink); }
+
+.modal-product-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 2px;
+  display: inline-block;
+  margin-bottom: 24px;
+}
+
+.modal-id {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--mid);
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+}
+
+.modal-title {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 28px;
+}
+
+.modal-divider {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 24px 0;
+}
+
+.modal-section { margin-bottom: 28px; }
+
+.modal-section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.modal-section p {
+  font-size: 0.88rem;
+  color: var(--mid);
+  line-height: 1.7;
+}
+
+.modal-section ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.modal-section ul li {
+  font-size: 0.85rem;
+  color: var(--mid);
+  line-height: 1.55;
+  padding-left: 14px;
+  position: relative;
+}
+
+.modal-section ul li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--rule);
+  font-size: 0.75rem;
+}
+
+.modal-metric-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.modal-metric {
+  padding: 14px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+}
+
+.modal-metric-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.modal-metric-label {
+  font-size: 0.75rem;
+  color: var(--mid);
+  line-height: 1.4;
+}
+
+.modal-highlight {
+  padding: 16px 18px;
+  border-left: 3px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--mid);
+  line-height: 1.65;
+  margin-top: 4px;
+}
+
+.modal-highlight strong { color: var(--ink); font-weight: 600; }
+
+.modal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.modal-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  padding: 4px 10px;
+  border: 1px solid var(--rule);
+  color: var(--mid);
+}
+
+.modal-quote {
+  padding: 20px;
+  border-left: 3px solid var(--rule);
+  margin-bottom: 24px;
+  background: var(--paper);
+}
+
+.modal-quote p {
+  font-size: 0.92rem;
+  color: var(--ink);
+  line-height: 1.65;
+  font-style: italic;
+}
+
+.modal-quote cite {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--mid);
+  font-style: normal;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.05em;
+}
+
+.modal-crosslink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  background: var(--paper);
+}
+
+.modal-crosslink:hover { border-color: var(--ink); }
+
+.modal-crosslink-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.modal-crosslink-text {
+  font-size: 0.82rem;
+  color: var(--ink);
+  flex: 1;
+}
+
+.modal-crosslink-arrow {
+  color: var(--mid);
+  font-size: 0.85rem;
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-copy {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--mid);
+}
+
+.footer-links { display: flex; gap: 24px; }
+.footer-links a {
+  font-size: 0.78rem;
+  color: var(--mid);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--ink); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  nav { padding: 18px 24px; }
+  .nav-links, .nav-cta { display: none; }
+  .hero { padding: 100px 24px 60px; }
+  .hero-rule { left: 24px; right: 24px; }
+  .philosophy { grid-template-columns: 1fr; gap: 24px; padding: 48px 24px; }
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+  .stats-strip .stat { border-right: none; }
+  .suite { padding: 48px 24px; }
+  .product-header { grid-template-columns: 1fr; }
+  .product-stats { grid-template-columns: 1fr 1fr; }
+  .modal-panel { width: 100vw; border-left: none; }
+  footer { flex-direction: column; gap: 16px; padding: 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="#">chancery-labs</a>
+  <ul class="nav-links">
+    <li><a href="#shela">shela</a></li>
+    <li><a href="#syla">syla</a></li>
+    <li><a href="#laxa">laxa</a></li>
+    <li><a href="#why-ai">Why AI</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a class="btn btn-ghost" href="https://github.com/rikg/rhetor-linter">GitHub</a>
+    <a class="btn btn-primary" href="#shela">See the tools →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">chancery-labs · shela · syla · laxa · open source</div>
+  <h1>Documentation quality<br>you can measure<br>and ship.</h1>
+  <p class="hero-desc">
+    A three-tool system that closes the gap between what your code does and what your docs say about it. Prose quality, structural coherence, and job coverage — measurable, trackable, visible across the org. No LLM required. No manual auditing.
+  </p>
+  <div class="hero-cta">
+    <a class="btn btn-primary" href="#shela">Explore the tools</a>
+    <a class="btn btn-ghost" href="#why-ai">Why this matters for AI →</a>
+  </div>
+  <div class="hero-rule"></div>
+</section>
+
+<!-- PHILOSOPHY / WHY AI -->
+<section class="philosophy" id="why-ai">
+  <div class="philosophy-label">The Stakes</div>
+  <div class="philosophy-text">
+    AI assistants, RAG pipelines, and support bots ingest your documentation and use it to answer questions. <strong>Coverage gaps produce hallucination. Section size mismatches break retrieval. Terminology drift degrades embedding similarity. Stale docs produce confident wrong answers.</strong> These are not documentation aesthetics — they are the specific, peer-researched failure modes that cause AI-grounded systems to produce friction, dead ends, and wrong answers at scale. chancery-labs flags them at commit time, before any AI ingests the docs.
+  </div>
+</section>
+
+<!-- STATS STRIP -->
+<div class="stats-strip">
+  <div class="stat">
+    <div class="stat-num">~30</div>
+    <div class="stat-label">NLP prose rules via spaCy</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">10</div>
+    <div class="stat-label">Vale rule types supported</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">~200</div>
+    <div class="stat-label">Library registry entries in laxa</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">5</div>
+    <div class="stat-label">Scoring dimensions, per topic type</div>
+  </div>
+</div>
+
+<!-- SUITE -->
+<section class="suite" id="suite">
+  <div class="section-header">
+    <h2>The Toolkit</h2>
+    <span class="count">3 tools · one clean boundary · open source</span>
+  </div>
+
+  <!-- SHELA -->
+  <div class="product-block shela" id="shela">
+    <div class="product-header">
+      <div>
+        <div class="product-meta">
+          <span class="product-tag">shela</span>
+          <span class="product-role">CLI Linter · CI Integration · Auto-fix</span>
+        </div>
+        <div class="product-name">The Linter</div>
+        <p class="product-tagline">Catches prose quality, structural violations, and coverage gaps on every commit. Text in, findings out — pure function, no state, no API key.</p>
+      </div>
+      <div class="product-stats">
+        <div class="product-stat">
+          <div class="product-stat-num">~30</div>
+          <div class="product-stat-label">NLP rules — cohesion, readability, rhetoric, structure</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">10</div>
+          <div class="product-stat-label">Vale rule types — load any --style-dir YAML set</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">10</div>
+          <div class="product-stat-label">Diataxis genres detected and scored separately</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">5</div>
+          <div class="product-stat-label">Quality dimensions: Clarity, Structure, Style, Form, Coverage</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="problems-grid">
+      <div class="problem-card" onclick="openModal('sh1')">
+        <div class="problem-id">SH · 01</div>
+        <div class="problem-title">Prose Problems Invisible to Syntax Linters</div>
+        <div class="problem-impact">Cohesion breaks, passive voice gaps, topic drift — none detectable without NLP. Standard linters miss all of it.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sh2')">
+        <div class="problem-id">SH · 02</div>
+        <div class="problem-title">RAG Chunking Failures</div>
+        <div class="problem-impact">Sections too long get split mid-argument at ingestion. Sections too short have no retrieval signal. Doc structure is retrieval architecture.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sh3')">
+        <div class="problem-id">SH · 03</div>
+        <div class="problem-title">Coverage Gaps Found by Users, Not CI</div>
+        <div class="problem-impact">No linter can flag what's missing without knowing what should exist. shela consumes a job manifest and flags unmapped jobs as lint findings.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sh4')">
+        <div class="problem-id">SH · 04</div>
+        <div class="problem-title">Voice and Terminology Drift</div>
+        <div class="problem-impact">Different writers, different terms for the same concept. Non-inclusive language accumulates. Brand voice erodes commit by commit.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sh5')">
+        <div class="problem-id">SH · 05</div>
+        <div class="problem-title">Genre Violations</div>
+        <div class="problem-impact">Concept docs with imperative steps confuse learners. ADRs without a Decision section are useless. How-tos with no verification step leave readers stranded.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sh6')">
+        <div class="problem-id">SH · 06</div>
+        <div class="problem-title">No Reliable Readability Signal</div>
+        <div class="problem-impact">Flesch is gameable. Fog is noisy. No single metric is trustworthy enough to set CI thresholds against.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SYLA -->
+  <div class="product-block syla" id="syla">
+    <div class="product-header">
+      <div>
+        <div class="product-meta">
+          <span class="product-tag">syla</span>
+          <span class="product-role">Quality Server · Dashboard · PR Gates · Badges</span>
+        </div>
+        <div class="product-name">The Server</div>
+        <p class="product-tagline">Makes shela's findings observable at repo and org scale. Trends, gates, alerts, badges, and a Backstage plugin — all from one stateful server that calls score_file() and stores the result.</p>
+      </div>
+      <div class="product-stats">
+        <div class="product-stat">
+          <div class="product-stat-num">4</div>
+          <div class="product-stat-label">Build phases: MVP → Dashboard → History → Auto-fix PRs</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">5</div>
+          <div class="product-stat-label">Dimensions tracked per repo, per file, per topic type</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">1</div>
+          <div class="product-stat-label">Import boundary: server only calls score_file() — no linter coupling</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">∞</div>
+          <div class="product-stat-label">Scan history — append-only, never overwrites, fully queryable</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="problems-grid">
+      <div class="problem-card" onclick="openModal('sy1')">
+        <div class="problem-id">SY · 01</div>
+        <div class="problem-title">Doc Quality Invisible at Org Level</div>
+        <div class="problem-impact">Each team has a local sense of quality. No cross-repo view, no trend data, no shared baseline. Platform leads are flying blind.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sy2')">
+        <div class="problem-id">SY · 02</div>
+        <div class="problem-title">Quality Regressions Ship Silently</div>
+        <div class="problem-impact">A refactor or new contributor degrades a section. No gate catches it. No alert fires. The drop shows up in support tickets a sprint later.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sy3')">
+        <div class="problem-id">SY · 03</div>
+        <div class="problem-title">Improvements Erode Without Signal</div>
+        <div class="problem-impact">A writing sprint improves Clarity scores. Two months later the gains are gone. No one noticed because there was no trend line to watch.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sy4')">
+        <div class="problem-id">SY · 04</div>
+        <div class="problem-title">No Embeddable Quality Signal</div>
+        <div class="problem-impact">Repos have build badges, coverage badges, dependency badges. No doc health badge. Quality is invisible at the README level.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sy5')">
+        <div class="problem-id">SY · 05</div>
+        <div class="problem-title">Doc Health Not in Backstage</div>
+        <div class="problem-impact">Engineering directors review build status, SLOs, and ownership in Backstage. Doc quality is absent from this picture — not because it doesn't matter but because it's not surfaced there.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('sy6')">
+        <div class="problem-id">SY · 06</div>
+        <div class="problem-title">Quality Is Subjective Without a Baseline</div>
+        <div class="problem-impact">"Our docs are pretty good" is not a number. Different teams have different standards. Cross-team prioritization is impossible without a shared metric.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAXA -->
+  <div class="product-block laxa" id="laxa">
+    <div class="product-header">
+      <div>
+        <div class="product-meta">
+          <span class="product-tag">laxa</span>
+          <span class="product-role">JTBD Extractor · Coverage Auditor · Drift Detector</span>
+        </div>
+        <div class="product-name">The Auditor</div>
+        <p class="product-tagline">Reads the codebase — not the docs — and infers what the software does. Produces a job manifest that shela uses to flag coverage gaps before users find them.</p>
+      </div>
+      <div class="product-stats">
+        <div class="product-stat">
+          <div class="product-stat-num">~200</div>
+          <div class="product-stat-label">Library registry entries, SWEBOK-grounded, 0.90 confidence</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">4</div>
+          <div class="product-stat-label">Extraction signals: CI config, import graph, call patterns, docstrings</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">4</div>
+          <div class="product-stat-label">Taxonomy tiers: Ulwick ODI + DevOps + SWEBOK + Organizational</div>
+        </div>
+        <div class="product-stat">
+          <div class="product-stat-num">0</div>
+          <div class="product-stat-label">LLM calls required — core pipeline is fully rule-based</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="problems-grid">
+      <div class="problem-card" onclick="openModal('lx1')">
+        <div class="problem-id">LX · 01</div>
+        <div class="problem-title">Nobody Knows What Jobs the Software Performs</div>
+        <div class="problem-impact">No team has a complete, current, code-grounded map of what their software does from a user's or integrator's perspective.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('lx2')">
+        <div class="problem-id">LX · 02</div>
+        <div class="problem-title">Integration Jobs Are Invisible</div>
+        <div class="problem-impact">API surfaces, webhooks, SDK usage, and third-party integrations show up in support escalations, not in JTBD exercises.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('lx3')">
+        <div class="problem-id">LX · 03</div>
+        <div class="problem-title">Manual JTBD Exercises Are Immediately Outdated</div>
+        <div class="problem-impact">Workshop outputs and annotation sprints are accurate on day one and wrong by the next sprint. Code changes faster than any manual process.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('lx4')">
+        <div class="problem-id">LX · 04</div>
+        <div class="problem-title">Coverage Audits Are Guesswork</div>
+        <div class="problem-impact">Without a reliable job manifest, "do we have docs for this?" is an opinion. With laxa's manifest, it's a Jaccard score with a confidence level.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('lx5')">
+        <div class="problem-id">LX · 05</div>
+        <div class="problem-title">Code-Doc Drift Undetectable Until It Hurts</div>
+        <div class="problem-impact">Features ship, code changes, integrations get added — and the documentation never updates. The gap is invisible until a user, a new hire, or an AI assistant hits it.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+      <div class="problem-card" onclick="openModal('lx6')">
+        <div class="problem-id">LX · 06</div>
+        <div class="problem-title">FAQ as a Gap Signal Nobody Reads</div>
+        <div class="problem-impact">FAQ pages are a map of what users couldn't find in the main docs. laxa parses FAQ questions as JTBD signals, classifies them, and flags the ones that reveal undocumented jobs.</div>
+        <div class="card-arrow">↗</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-copy">chancery-labs · shela · syla · laxa · MIT License · open source</span>
+  <div class="footer-links">
+    <a href="https://github.com/rikg/rhetor-linter">GitHub</a>
+    <a href="../pitch/prd-chancery-labs.md">PRD</a>
+    <a href="../pitch/tool-breakdown-chancery-labs.md">Tool Breakdown</a>
+    <a href="../index.html">shela rules →</a>
+  </div>
+</footer>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal-panel" id="modalPanel">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script type="application/json" id="modalDataJSON">
+{
+  "sh1": {
+    "product": "shela",
+    "productClass": "shela",
+    "id": "SH · 01",
+    "title": "Prose Problems Invisible to Syntax Linters",
+    "hook": {
+      "text": "A doc can pass every markdownlint rule, every spell check, and every link validator — and still be incomprehensible. Discourse-level quality requires discourse-level analysis.",
+      "source": "chancery-labs · one-pager"
+    },
+    "rootCause": "Standard linters tokenize. Prose quality is relational — it lives in the connection between sentences, the consistency between a heading and its body, the ratio of nominalizations to active constructions. These patterns are only visible after syntactic parsing.",
+    "problem": "Sentences that don't connect, pronouns that refer to nothing, topic sentences that drift from their section body, passive voice that hides who does the action — none of these are detectable with regex, grammar rules, or token counts. They require dependency parse trees, part-of-speech tagging, and discourse-level overlap scoring.",
+    "cascade": [
+      "Readers lose track of argument threads mid-section",
+      "RAG retrievers return chunks that don't answer the query",
+      "AI assistants generate answers from incomplete context",
+      "New hires spend extra time reconstructing implicit connections"
+    ],
+    "solution": "~30 spaCy-based NLP rules, each targeting a specific prose failure mode. Rules run on every commit in CI — no manual review, no reviewer bandwidth required.",
+    "howItWorks": [
+      "spaCy builds a dependency parse tree and POS-tagged doc for each paragraph",
+      "Cohesion rules compute token overlap between adjacent sentences",
+      "Unity rules compare heading vocabulary to topic sentence vocabulary via set Jaccard",
+      "Rhetoric rules detect nominalization patterns, passive constructions, and discourse connective mismatches",
+      "Findings carry line number, column, severity, and message — Vale-compatible output format"
+    ],
+    "frameworks": ["spaCy dep parse", "Jaccard overlap", "Givenness theory", "RST discourse"],
+    "inPractice": "A Cohesion.Break finding at line 34 means sentence 34 shares no vocabulary or discourse marker with sentence 33. A Unity.TopicSectionDrift finding means the topic sentence shares fewer than 20% of content words with the rest of the section.",
+    "crosslinks": [
+      { "id": "sh2", "productClass": "shela", "product": "shela", "label": "RAG Chunking Failures" },
+      { "id": "sh5", "productClass": "shela", "product": "shela", "label": "Genre Violations" }
+    ]
+  },
+  "sh2": {
+    "product": "shela",
+    "productClass": "shela",
+    "id": "SH · 02",
+    "title": "RAG Chunking Failures",
+    "hook": {
+      "text": "Doc structure is retrieval architecture. A section that exceeds 600 words will be split at ingestion — the chunk boundary is arbitrary, the retrieved fragment is incomplete, and the generated answer is wrong.",
+      "source": "chancery-labs · one-pager"
+    },
+    "rootCause": "RAG pipelines chunk documents at ingestion — typically at heading boundaries or at fixed token intervals. Sections that are too long get split mid-argument. Sections that are too short have insufficient signal to rank above adjacent content. Neither failure is visible at authoring time.",
+    "problem": "No existing linter checks for RAG-relevant structural constraints: section length relative to typical context windows, paragraph length relative to retrieval chunk size, section coherence relative to the query it will be matched against. These constraints are new — they emerged from LLM deployment patterns, not from classical writing style guidance.",
+    "cascade": [
+      "Retrieval returns incomplete arguments — the model generates from half a reasoning chain",
+      "Short sections compete poorly with longer adjacent content — the relevant answer ranks below irrelevant material",
+      "Topic drift within a section causes the chunk to match queries it wasn't written to answer",
+      "Stale or overlong sections degrade embedding precision across the whole corpus"
+    ],
+    "solution": "Structure rules enforce chunk-relevant boundaries: Structure.ChunkBoundary (>500 words), Structure.ChunkTooShort (<80 words), Structure.ParagraphLength (>150 words), Structure.WallOfText (dense prose with no structural breaks). All configurable thresholds.",
+    "howItWorks": [
+      "Engine counts words per section and per paragraph after stripping code fences and HTML",
+      "Threshold comparison fires a finding with the measured count and the configured limit",
+      "Structure.WallOfText measures the ratio of prose paragraphs to structural elements (lists, fences, headings) within a section",
+      "All thresholds configurable via .rhetoric-lint.yaml or --config flag"
+    ],
+    "frameworks": ["RAG chunking theory", "Optimal context window research (400–600 words)", "Minimum retrieval signal floor"],
+    "inPractice": "A section titled \"Architecture\" with 840 words and no headings or lists triggers both Structure.ChunkBoundary and Structure.WallOfText. Fixing it — adding a subheading at the 400-word mark — improves both readability and retrieval precision.",
+    "crosslinks": [
+      { "id": "sh1", "productClass": "shela", "product": "shela", "label": "Prose Problems" },
+      { "id": "lx5", "productClass": "laxa", "product": "laxa", "label": "Code-Doc Drift" }
+    ]
+  },
+  "sh3": {
+    "product": "shela",
+    "productClass": "shela",
+    "id": "SH · 03",
+    "title": "Coverage Gaps Found by Users, Not CI",
+    "hook": {
+      "text": "Documentation shifts with gaps your users find before your team does.",
+      "source": "chancery-labs · one-pager"
+    },
+    "rootCause": "A per-file linter can only check what's in the file. It has no knowledge of what the software does, what users are trying to accomplish, or which of those jobs have no documentation anywhere in the set. Coverage is a corpus-level property — it requires a manifest of what should exist.",
+    "problem": "A doc set can pass every shela rule on every file and still be missing documentation for half of what the product does. Without a job manifest grounded in the actual codebase, coverage audits are manual, inconsistent, and immediately outdated when the code changes.",
+    "cascade": [
+      "Users hit features or integrations with no docs and open support tickets",
+      "AI assistants trained on the doc set hallucinate answers for undocumented jobs",
+      "New engineers can't find onboarding guidance for jobs the software performs but doesn't document",
+      "Platform teams can't prioritize doc effort without knowing where the gaps are"
+    ],
+    "solution": "Coverage.MissingJobCoverage rule consumes a jtbd-manifest.json from laxa and fires one finding per job with no matching documentation coverage. Surfaces as a CI lint finding — not a quarterly review item.",
+    "howItWorks": [
+      "shela reads the manifest via --jtbd-manifest flag",
+      "For each job in the manifest, computes Jaccard similarity against all doc paragraphs in the scanned set",
+      "Jobs below the JTBD_COVERAGE_JACCARD_MIN threshold fire a warning with the job description and matched coverage score",
+      "One finding per unmapped job — not one per file — prevents N×M spam"
+    ],
+    "frameworks": ["Jaccard similarity", "JTBD theory (Ulwick ODI)", "CrossFileContext"],
+    "inPractice": "If laxa's manifest contains a job \"rotate API keys\" and no doc paragraph scores above 0.15 Jaccard against it, CI fails with: Coverage.MissingJobCoverage: Job 'rotate-api-keys' has no documentation coverage.",
+    "crosslinks": [
+      { "id": "lx1", "productClass": "laxa", "product": "laxa", "label": "JTBD Job Extraction" },
+      { "id": "lx4", "productClass": "laxa", "product": "laxa", "label": "Coverage Audit as a Number" }
+    ]
+  },
+  "sh4": {
+    "product": "shela",
+    "productClass": "shela",
+    "id": "SH · 04",
+    "title": "Voice and Terminology Drift",
+    "hook": {
+      "text": "Terminology inconsistency degrades embedding similarity. When the same concept is named differently across docs, the right doc ranks below irrelevant ones.",
+      "source": "chancery-labs · one-pager"
+    },
+    "rootCause": "Documentation is written by many people over time with no automated enforcement of vocabulary decisions. Inclusive terminology commitments, brand voice rules, and approved product terms are captured in style guides that nobody reads before opening a PR.",
+    "problem": "Over time a doc set accumulates: deprecated terms that were renamed, non-inclusive language that slipped through review, inconsistent capitalization of product names, and brand voice violations. Manual style reviews don't scale. Style guide PDFs don't run in CI.",
+    "cascade": [
+      "Embedding-based retrieval produces collisions when the same concept has two names",
+      "Non-inclusive language creates friction with users and candidates",
+      "Inconsistent product naming undermines brand credibility",
+      "LLMs trained on the doc set inherit the inconsistency"
+    ],
+    "solution": "Vale-compatible YAML substitution rules with --fix auto-correction. Teams write style rules in YAML alongside their docs — no Python, no code review friction. Substitution findings carry a fix payload; --fix applies corrections in-place.",
+    "howItWorks": [
+      "Teams write Vale YAML rules (extends: substitution, existence, consistency) in a --style-dir directory",
+      "shela loads the directory at runtime; rules run on every matching doc",
+      "Substitution rules write a fix: dict alongside each finding",
+      "rhetoric-lint --fix docs/ applies all fixable findings right-to-left per line to avoid offset drift",
+      "Wordlist files (vocab/tech.txt, vocab/aws.txt, custom) define approved terms; spelling rule uses them as an allowlist"
+    ],
+    "frameworks": ["Vale YAML rule format", "extends: substitution / existence / consistency / conditional", "spylls (en_US, sv_SE, ru)"],
+    "inPractice": "Rhetoric.Terminology catches \"whitelist\" → \"allowlist\" and auto-fixes it. Rhetoric.Inclusivity flags \"sanity check\" with a substitution suggestion. Custom rules catch product name capitalization violations specific to your org.",
+    "crosslinks": [
+      { "id": "sh1", "productClass": "shela", "product": "shela", "label": "Prose Problems" },
+      { "id": "sy6", "productClass": "syla", "product": "syla", "label": "No Org Baseline" }
+    ]
+  },
+  "sh5": {
+    "product": "shela",
+    "productClass": "shela",
+    "id": "SH · 05",
+    "title": "Genre Violations",
+    "hook": {
+      "text": "A concept doc with imperative steps confuses the learner who came to understand, not to do. A how-to with no verification step leaves the practitioner guessing whether they finished.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Different doc types serve different reader needs at different cognitive stages. Diataxis formalizes this: concept docs build mental models, how-tos guide task completion, references answer lookup questions, tutorials provide learning experiences. Mixing these modes in one doc, or writing the wrong one for the job, fails the reader even when the content is accurate.",
+    "problem": "Genre violations are invisible to generic linters. A concept doc that leaks procedural steps, a how-to that omits its verification step, an ADR without a Decision section, a tutorial that branches into alternatives — all pass syntax and grammar checks. Only a genre-aware linter can catch them.",
+    "cascade": [
+      "Learners reading a concept doc hit imperative steps and don't know whether to follow them",
+      "Practitioners following a how-to have no way to verify they completed the task",
+      "ADRs without Decision sections are useless as architectural records",
+      "Tutorials that branch confuse learners who expect a single guided path"
+    ],
+    "solution": "10-genre Diataxis classifier (howto, tutorial, concept, explanation, reference, adr, postmortem, changelog, readme, general) runs before rules. Genre-specific rule sets fire for each type. Section-level topic_type annotation overrides the classifier for mixed-content docs.",
+    "howItWorks": [
+      "Filename signals (README, CHANGELOG, CONTRIBUTING) have highest priority",
+      "Structural signals (ordered lists, imperative headings, code-heavy sections) drive inference for unlabeled docs",
+      "Each section independently classified as howto, concept, reference, tutorial, explanation, troubleshooting, or faq",
+      "Genre-specific rules: Completeness.ResultVerification for howtos; ADR.MissingDecision for ADRs; Tutorial.NoObservationCues for tutorials",
+      "Override with --genre flag or per-section YAML annotation block"
+    ],
+    "frameworks": ["Diataxis framework", "10-genre classifier", "Section-level topic_type", "ADR/postmortem heading constellations"],
+    "inPractice": "A file named decision-record-auth.md is classified as adr. If it has a Status and Context section but no Decision section, ADR.MissingDecision fires at error severity — regardless of whether the prose is otherwise correct.",
+    "crosslinks": [
+      { "id": "sh1", "productClass": "shela", "product": "shela", "label": "Prose Problems" },
+      { "id": "sy1", "productClass": "syla", "product": "syla", "label": "Quality Invisible at Org Level" }
+    ]
+  },
+  "sh6": {
+    "product": "shela",
+    "productClass": "shela",
+    "id": "SH · 06",
+    "title": "No Reliable Readability Signal",
+    "hook": {
+      "text": "Flesch is gameable — break one long sentence into three short ones and the score jumps without the prose becoming clearer. Teams need a signal stable enough to gate on.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Every single readability metric captures one dimension of complexity and ignores others. Flesch rewards short sentences and short words. Gunning Fog penalizes polysyllabic words. ARI counts characters. Dale-Chall checks against a familiar-word list. None alone is trustworthy enough to set a CI threshold.",
+    "problem": "Teams either pick one metric arbitrarily (and get gamed), use multiple metrics inconsistently, or abandon readability checks entirely. The result: no actionable readability signal in CI, and wide variance in prose complexity across the doc set.",
+    "cascade": [
+      "Authors optimize for a single metric and produce prose that scores well but reads badly",
+      "No shared threshold means \"readable\" is subjective across the org",
+      "AI assistants retrieve and generate from dense prose — retrieval quality degrades",
+      "International and non-native English readers are disproportionately affected"
+    ],
+    "solution": "Lexi composite score — weighted blend of Flesch Reading Ease (16.5%), Gunning Fog (22.3%), ARI (23.3%), Dale-Chall (19.6%), Coleman-Liau (18.3%). 0–100 scale; 100 = most readable. Configurable threshold per genre. Implemented as a Vale extends: readability rule (metric: Lexi).",
+    "howItWorks": [
+      "Five textstat metrics computed per paragraph",
+      "Weighted blend using the exact Rebilly/lexi formula and normalization",
+      "\"Lower is better\" metrics use inverted range convention",
+      "Paragraph scope (not document) — catches local complexity spikes without penalizing glossaries or reference tables",
+      "Genre-configurable threshold: how-tos default to 65; reference docs allow a lower floor"
+    ],
+    "frameworks": ["Lexi composite (Rebilly/lexi formula)", "Flesch / Fog / ARI / Dale-Chall / Coleman-Liau", "textstat"],
+    "inPractice": "Rhetoric.ReadabilityGrade fires when a paragraph scores below 65 on the Lexi scale. The finding includes the paragraph score, the threshold, and the line range — giving the author exactly what to rewrite.",
+    "crosslinks": [
+      { "id": "sh1", "productClass": "shela", "product": "shela", "label": "Prose Problems" },
+      { "id": "sy3", "productClass": "syla", "product": "syla", "label": "Improvements Erode Without Signal" }
+    ]
+  },
+  "sy1": {
+    "product": "syla",
+    "productClass": "syla",
+    "id": "SY · 01",
+    "title": "Doc Quality Invisible at Org Level",
+    "hook": {
+      "text": "Every team has a local sense of whether their docs are good. No one has a cross-repo view. Platform leads are making prioritization decisions with no data.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "shela is a per-file linter. It produces findings per run, but those findings are ephemeral — run locally and forgotten, or surfaced in CI without aggregation. There is no layer that accumulates findings into scores, compares scores across repos, or makes trends visible.",
+    "problem": "Documentation quality is not a property of a single file — it is a property of a doc set over time. An org with 40 repos and no aggregation layer has 40 local quality signals that are individually meaningful and collectively invisible.",
+    "cascade": [
+      "DX leads can't identify which repos need most documentation effort",
+      "Engineers don't know where their doc debt ranks relative to the rest of the org",
+      "Documentation improvement initiatives have no baseline to measure progress against",
+      "Platform teams can't define cross-org standards without a cross-org measurement"
+    ],
+    "solution": "syla polls watched repos on a schedule, calls score_file() per .md file, and persists every result in an append-only store. Cross-repo dashboard shows current scores, worst-performing docs, and per-dimension breakdowns.",
+    "howItWorks": [
+      "APScheduler polls on configurable interval (default: 6h) via git clone --depth=1",
+      "score_file() called per .md file; ScoreResult stored per run per file",
+      "Dashboard aggregates by repo, by dimension, and by topic type",
+      "Worst-performing docs surface at the top of the repo view",
+      "All scores queryable via REST API for custom reporting pipelines"
+    ],
+    "frameworks": ["APScheduler", "FastAPI", "SQLite (append-only)", "score_file() boundary"],
+    "inPractice": "After first deployment, a DX lead opens the dashboard and immediately sees that docs/ has a 4.2/1kw Coverage score (threshold: 2.0) while all other dimensions are green. One repo, one dimension — actionable in one sprint.",
+    "crosslinks": [
+      { "id": "sy2", "productClass": "syla", "product": "syla", "label": "Regressions Ship Silently" },
+      { "id": "sy5", "productClass": "syla", "product": "syla", "label": "Not in Backstage" }
+    ]
+  },
+  "sy2": {
+    "product": "syla",
+    "productClass": "syla",
+    "id": "SY · 02",
+    "title": "Quality Regressions Ship Silently",
+    "hook": {
+      "text": "A refactor restructures a how-to. A new contributor rewrites an introduction. No gate catches the Clarity regression. The drop shows up in support tickets a sprint later.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Without a PR gate, documentation quality has no enforcement point. Code quality has gates (tests, linting, coverage thresholds) that block merges when metrics drop below configured thresholds. Doc quality does not — unless syla adds one.",
+    "problem": "Engineers who would never merge code that breaks tests will merge prose that breaks every readability and cohesion check — not because they don't care but because there's no gate in their workflow. The regression is silent at merge time and visible only after users encounter it.",
+    "cascade": [
+      "Incremental regressions compound across PRs into a large quality drop over a quarter",
+      "Author of the regression has no feedback at the point where fixing it is cheapest",
+      "Review process doesn't catch prose quality — reviewers optimize for correctness, not coherence",
+      "RAG-indexed docs degrade one PR at a time with no signal to the team"
+    ],
+    "solution": "syla posts a GitHub/GitLab status check on every PR for governed repos. Configurable density gate per dimension: a PR that would push Clarity above 3.0/1kw fails the check. Inline review comments annotate the changed lines that caused the regression.",
+    "howItWorks": [
+      "syla receives webhook on PR open/update (or polls on PR schedule)",
+      "Runs score_file() on the changed .md files in the PR diff",
+      "Compares post-merge projected score against the configured threshold",
+      "Posts status check (pass/warn/fail) to GitHub Checks API",
+      "Inline comments on changed lines that exceed per-rule severity thresholds (opt-in per repo)"
+    ],
+    "frameworks": ["GitHub Checks API", "GitLab pipeline integration", "Configurable density gate"],
+    "inPractice": "A PR that rewrites docs/deploy.md pushes its Clarity score from 1.8/1kw to 3.6/1kw (gate: 3.0). syla posts a failing check with: 'Clarity regression: 3.6/1kw exceeds threshold 3.0/1kw. 3 findings on changed lines.'",
+    "crosslinks": [
+      { "id": "sy3", "productClass": "syla", "product": "syla", "label": "Improvements Erode Without Signal" },
+      { "id": "sh1", "productClass": "shela", "product": "shela", "label": "Prose Problems" }
+    ]
+  },
+  "sy3": {
+    "product": "syla",
+    "productClass": "syla",
+    "id": "SY · 03",
+    "title": "Improvements Erode Without Signal",
+    "hook": {
+      "text": "A writing sprint improves Clarity from 3.2 to 1.4/1kw. Two months later it's back to 2.9. Nobody noticed — there was no trend line to watch, no alert to fire.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Documentation improvement efforts happen in sprints — concentrated effort that produces visible short-term gains. Without a trend layer, those gains erode gradually through normal development activity and nobody has the signal to notice or intervene.",
+    "problem": "Improvement without measurement is a bet. Teams invest in writing sprints, style guides, and documentation standards — and have no way to confirm the investment held. The org learns only when quality has degraded enough to produce support friction again.",
+    "solution": "Append-only scan history with per-dimension trend charts. Per-file score delta between runs. Score regression detection with configurable Slack/email alert.",
+    "howItWorks": [
+      "Every scan appends results — nothing is overwritten",
+      "Trend chart per repo per dimension shows score over the last N runs",
+      "Per-file delta: Δ Clarity = +0.4/1kw since last week",
+      "Regression detector fires when score drops more than X/1kw between consecutive scans",
+      "Slack webhook alert sent to repo owner channel with: repo, dimension, Δ score, worst file"
+    ],
+    "frameworks": ["Append-only store", "Score delta computation", "Slack webhook", "APScheduler"],
+    "inPractice": "Six weeks after a writing sprint, syla's Clarity trend chart for docs/ shows a steady climb from 1.4 back toward 2.1. A configured alert at 2.0 fires to #docs-platform. The team runs a focused review of the three files that regressed most.",
+    "crosslinks": [
+      { "id": "sy2", "productClass": "syla", "product": "syla", "label": "Regressions Ship Silently" },
+      { "id": "sy6", "productClass": "syla", "product": "syla", "label": "No Org Baseline" }
+    ]
+  },
+  "sy4": {
+    "product": "syla",
+    "productClass": "syla",
+    "id": "SY · 04",
+    "title": "No Embeddable Quality Signal",
+    "hook": {
+      "text": "Repos have build badges, coverage badges, dependency badges. No doc health badge. Quality is invisible at the README level — where engineers, contributors, and users form their first impression.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Badges create social accountability. A red coverage badge is a signal to contributors and reviewers that quality attention is needed. Documentation quality has no equivalent embeddable signal — teams that invest in documentation have no way to make that investment visible.",
+    "problem": "Documentation quality is invisible where engineers actually look. A repo with excellent docs looks identical to a repo with no docs at the README and PR level. There is no ambient signal that communicates doc health to contributors, reviewers, or users.",
+    "solution": "Shields.io-compatible badge endpoint. GET /badge/{owner}/{repo}.json returns a valid Shields.io JSON response. Drop into any README with a one-line markdown snippet.",
+    "howItWorks": [
+      "Badge shows worst-dimension density rate with color thresholds",
+      "Green: worst dimension < 1.0/1kw",
+      "Yellow: 1.0–3.0/1kw",
+      "Red: > 3.0/1kw",
+      "Grey: insufficient sample (< 150 words)",
+      "Updates on every polling cycle — always reflects current scan"
+    ],
+    "frameworks": ["Shields.io endpoint spec", "Density rate scoring"],
+    "inPractice": "[![doc health](https://syla.example.com/badge/org/repo.svg)](https://syla.example.com/repo/org/repo) — one line in the README. Readers see a green or yellow badge before opening a single doc page.",
+    "crosslinks": [
+      { "id": "sy1", "productClass": "syla", "product": "syla", "label": "Quality Invisible at Org Level" },
+      { "id": "sy5", "productClass": "syla", "product": "syla", "label": "Not in Backstage" }
+    ]
+  },
+  "sy5": {
+    "product": "syla",
+    "productClass": "syla",
+    "id": "SY · 05",
+    "title": "Doc Health Not in Backstage",
+    "hook": {
+      "text": "Engineering directors review build status, SLOs, and ownership in Backstage. Documentation quality is absent from this picture — not because it doesn't matter but because nothing surfaces it there.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Backstage is where platform and DX teams go for the engineering health picture. Every metric that lives outside Backstage is a metric that doesn't exist for the people who make prioritization decisions. Documentation quality needs to live where decisions are made.",
+    "problem": "A doc health card in Backstage changes the organizational posture toward documentation. It moves doc quality from a nice-to-have measured in quarterly reviews to a first-class engineering metric reviewed alongside build health and SLOs. Without Backstage integration, documentation quality is invisible to the people who could act on it.",
+    "solution": "TypeScript Backstage plugin with two surfaces: an owner view (doc health profile for all docs owned by a catalog entity, issues by dimension, trend sparkline) and a reader view (quality chip in the TechDocs doc page header).",
+    "howItWorks": [
+      "Plugin reads pre-computed scores from syla's REST API — no direct linter calls",
+      "Owner view: per-entity doc health card in Backstage catalog",
+      "Reader view: quality chip in TechDocs page header showing worst-dimension score",
+      "Score freshness indicator: last scan timestamp visible in both surfaces",
+      "laxa's catalog-info.yaml integration feeds Coverage dimension findings into the same entity context"
+    ],
+    "frameworks": ["Backstage plugin API", "TechDocs plugin surface", "syla REST API"],
+    "inPractice": "A platform engineering director reviews the Backstage entity page for the payments service. The doc health card shows: Clarity 1.2 ✓, Structure 0.8 ✓, Coverage 4.1 ✗. One number tells them where to direct the next documentation sprint.",
+    "crosslinks": [
+      { "id": "sy1", "productClass": "syla", "product": "syla", "label": "Quality Invisible at Org Level" },
+      { "id": "sy4", "productClass": "syla", "product": "syla", "label": "No Embeddable Signal" }
+    ]
+  },
+  "sy6": {
+    "product": "syla",
+    "productClass": "syla",
+    "id": "SY · 06",
+    "title": "Quality Is Subjective Without a Baseline",
+    "hook": {
+      "text": "\"Our docs are pretty good.\" Is that a 1.2/1kw or a 3.8/1kw? Without a number, it's an opinion — and opinions don't drive sprint planning.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Quality without measurement is a conversation, not a decision. Teams have no shared language for documentation quality — each team sets its own informal standard, reviews against their own intuition, and has no way to compare their position against the rest of the org.",
+    "problem": "Cross-org documentation improvement initiatives fail because there is no shared metric. A documentation standard is a PDF until it has a corresponding CI check. A writing investment is a belief until it has a trend line. Quality is subjective until it has a number.",
+    "solution": "Five-dimension density score (findings per 1,000 words) in Clarity, Structure, Style, Form, and Coverage. Same metric across all repos, all files, all teams. Per-topic-type breakdown within each file — the key differentiator no other tool provides.",
+    "howItWorks": [
+      "Score unit: findings/1kw — comparable across docs of any length",
+      "Minimum word floor: 150 words — no scores on stubs",
+      "Five dimensions mapped from rule prefixes via DIMENSION_MAP in const.py",
+      "Per-topic-type breakdown: Clarity broken down by [concept], [how-to], [reference] sections within the same file",
+      "Density rate allows meaningful comparison between a 200-word ADR and a 5000-word architecture guide"
+    ],
+    "frameworks": ["Density rate scoring (findings/1kw)", "DIMENSION_MAP", "Diataxis topic breakdown", "150-word floor"],
+    "inPractice": "The org sets a quality gate at 2.0/1kw for Coverage across all governed repos. Teams below 2.0 in any dimension have an actionable, specific target. Teams above 2.0 can see exactly which dimension to focus on next.",
+    "crosslinks": [
+      { "id": "sy3", "productClass": "syla", "product": "syla", "label": "Improvements Erode Without Signal" },
+      { "id": "sh6", "productClass": "shela", "product": "shela", "label": "No Reliable Readability Signal" }
+    ]
+  },
+  "lx1": {
+    "product": "laxa",
+    "productClass": "laxa",
+    "id": "LX · 01",
+    "title": "Nobody Knows What Jobs the Software Performs",
+    "hook": {
+      "text": "Ask three engineers what their software's top five user jobs are. Get three different answers — all partially right, none complete, all immediately outdated.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "JTBD maps are expensive to produce manually and impossible to keep current. As code changes, the job map drifts — new jobs are added, old ones are deprecated, integration patterns shift. No manual process scales to the pace of development.",
+    "problem": "Without a complete, current, code-grounded job map, coverage audits are guesswork. Teams write docs for the jobs they remember, not for the jobs the software actually performs. The gap between the two is invisible until users hit it.",
+    "cascade": [
+      "Coverage check has no manifest to check against — shela can't flag what it doesn't know is missing",
+      "AI assistants trained on the doc set answer questions about jobs that have no documentation",
+      "New engineers write docs for visible user-facing flows and miss integration and platform jobs",
+      "Product decisions are made on incomplete job landscapes"
+    ],
+    "solution": "laxa extracts a job map from the codebase itself — import graph, CI/CD config, call patterns, and docstrings — with confidence scores and signal provenance. No manual annotation. No LLM required. Re-runs on every commit.",
+    "howItWorks": [
+      "Import graph: ~200 library entries, 0.90 confidence — boto3 → cloud provisioning, snyk → dependency audit",
+      "CI/CD config: GitHub Actions, GitLab CI, Jenkinsfile, Terraform — stage names → job signals at 0.95 confidence",
+      "Call patterns: subprocess, HTTP clients, cloud SDK calls → job intent from function bodies",
+      "Docstrings: spaCy dep parse on first-sentence docstrings → root verb + object → job lookup at 0.45–0.65 confidence",
+      "Conflict resolution: CI config > import > call pattern > docstring"
+    ],
+    "frameworks": ["JTBD theory (Ulwick ODI)", "SWEBOK knowledge areas", "tree-sitter grammars (Python, TS, JS, Go)", "spaCy dep parse"],
+    "inPractice": "A Python codebase with boto3, github3.py, and a deploy stage in its GitHub Actions workflow produces a manifest with: provision-cloud-resources (import, 0.90), manage-github-repositories (import, 0.90), deploy-application (CI config, 0.95). No annotation required.",
+    "crosslinks": [
+      { "id": "lx2", "productClass": "laxa", "product": "laxa", "label": "Integration Jobs Invisible" },
+      { "id": "sh3", "productClass": "shela", "product": "shela", "label": "Coverage Gaps in CI" }
+    ]
+  },
+  "lx2": {
+    "product": "laxa",
+    "productClass": "laxa",
+    "id": "LX · 02",
+    "title": "Integration Jobs Are Invisible",
+    "hook": {
+      "text": "User-facing jobs get documented. Integration jobs — the API surfaces, webhook handlers, SDK usage, third-party dependencies — show up as support escalations, not as missing documentation.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "JTBD exercises focus on user stories. Integration jobs — what the software does as a platform participant, not as a user-facing product — are not surfaced by user research. They are visible in the code but invisible in documentation planning.",
+    "problem": "Developer platform teams, API teams, and SDK maintainers have integration jobs that are often more important to their audience than user-facing jobs. These jobs have no natural representation in user story workshops. They are documented reactively, if at all.",
+    "solution": "Import graph and call pattern extraction surfaces integration jobs alongside user-facing jobs. A codebase importing a GitHub SDK signals repository management jobs. A codebase making boto3 EC2 calls signals cloud provisioning jobs. These land in the same manifest as user-facing jobs.",
+    "howItWorks": [
+      "Import graph maps ~200 library entries to job signals at 0.90 confidence",
+      "Call patterns extract job signals from HTTP clients, SDK calls, and subprocess invocations in function bodies",
+      "Integration jobs classified in the same four-tier schema as user jobs",
+      "Confidence score and source signal stored per job — teams can filter by signal type",
+      "REST API: POST /scan returns full manifest; GET /manifest/:id retrieves by run ID"
+    ],
+    "frameworks": ["tree-sitter grammars", "SWEBOK KA classification", "REST API (laxa serve)"],
+    "inPractice": "A platform team's codebase imports stripe, twilio, and datadog-api-client. laxa produces: process-payments (0.90), send-notifications (0.90), monitor-infrastructure (0.90). All three fire shela's coverage check. Two have no docs. Two support tickets per month go away.",
+    "crosslinks": [
+      { "id": "lx1", "productClass": "laxa", "product": "laxa", "label": "Job Map Extraction" },
+      { "id": "lx4", "productClass": "laxa", "product": "laxa", "label": "Coverage Audit as a Number" }
+    ]
+  },
+  "lx3": {
+    "product": "laxa",
+    "productClass": "laxa",
+    "id": "LX · 03",
+    "title": "Manual JTBD Exercises Are Immediately Outdated",
+    "hook": {
+      "text": "The workshop output is accurate on day one and partially wrong by the next sprint. Code changes faster than any manual process can track.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "JTBD mapping workshops, user research sessions, and annotation sprints are point-in-time exercises. They produce a snapshot of the job landscape at the time of the exercise. As development continues, that snapshot drifts from the actual codebase — silently.",
+    "problem": "Teams that invest in manual JTBD exercises do valuable work that immediately starts decaying. The coverage check that passed last quarter may be failing this quarter — not because the docs changed but because the code did. No one knows unless they repeat the exercise.",
+    "solution": "laxa re-runs on every commit. The manifest is always current. Every PR that changes a dependency, modifies a CI stage, or adds a new SDK call produces an updated manifest automatically.",
+    "howItWorks": [
+      "laxa CLI integrates into pre-commit or CI pipeline",
+      "Incremental extraction via skeleton chunking for large codebases",
+      "jtbd-manifest.json output is versioned JSON — schema-stable across laxa releases",
+      "shela consumes the manifest on the same CI run — coverage check is always against current code",
+      "Optional: laxa vcs-manifest parses conventional commits to flag jobs affected by recent changes"
+    ],
+    "frameworks": ["CI/CD integration", "Stable manifest schema (versioned JSON)", "Incremental extraction"],
+    "inPractice": "A PR adds helm as a dependency. laxa's next run adds deploy-to-kubernetes to the manifest. If docs/ has no coverage for that job, the PR's CI run fails Coverage.MissingJobCoverage before merge.",
+    "crosslinks": [
+      { "id": "lx5", "productClass": "laxa", "product": "laxa", "label": "Code-Doc Drift" },
+      { "id": "lx1", "productClass": "laxa", "product": "laxa", "label": "Job Map Extraction" }
+    ]
+  },
+  "lx4": {
+    "product": "laxa",
+    "productClass": "laxa",
+    "id": "LX · 04",
+    "title": "Coverage Audits Are Guesswork",
+    "hook": {
+      "text": "\"Do we have docs for this?\" is an opinion without a manifest. With laxa's manifest, it's a Jaccard score with a confidence level and a signal source.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "Coverage is a relational property — it describes the relationship between what the software does and what the docs say. Without a structured representation of both sides, any coverage assessment depends on reviewer knowledge, reviewer attention, and reviewer availability.",
+    "problem": "Coverage audits conducted manually are expensive, inconsistent, and incomplete. Auditors miss integration jobs, miss deprecated but undocumented flows, and disagree on what 'coverage' means. The result is a false confidence that coverage is adequate.",
+    "solution": "For each job in the manifest, laxa computes Jaccard similarity against all doc paragraphs in the scanned set. Jobs below the configurable threshold are flagged coverage: missing with a similarity score. Every finding is reproducible and auditable.",
+    "howItWorks": [
+      "Job description tokenized and compared against doc paragraph tokens via Jaccard similarity",
+      "JTBD_COVERAGE_JACCARD_MIN threshold configurable per org (default: 0.15)",
+      "Coverage report: per-job score, matched paragraph reference, coverage verdict",
+      "Remediation guidance per gap: whether to add a new doc, absorb into existing, and which genre fits the job",
+      "REST API: POST /audit returns full coverage report for a manifest + doc set pair"
+    ],
+    "frameworks": ["Jaccard similarity", "JTBD_COVERAGE_JACCARD_MIN", "Remediation classification"],
+    "inPractice": "laxa audit produces: rotate-api-keys: 0.08 (coverage: missing), configure-webhook-endpoints: 0.22 (coverage: present), deploy-to-staging: 0.31 (coverage: present). Two gaps, one confirmed, actionable by end of sprint.",
+    "crosslinks": [
+      { "id": "lx1", "productClass": "laxa", "product": "laxa", "label": "Job Map Extraction" },
+      { "id": "sh3", "productClass": "shela", "product": "shela", "label": "Coverage Gaps in CI" }
+    ]
+  },
+  "lx5": {
+    "product": "laxa",
+    "productClass": "laxa",
+    "id": "LX · 05",
+    "title": "Code-Doc Drift Undetectable Until It Hurts",
+    "hook": {
+      "text": "Code changes. Docs don't. The gap between them is invisible until a user, a new hire, or an AI assistant hits it — and by then it's already causing load.",
+      "source": "chancery-labs · one-pager"
+    },
+    "rootCause": "There is no automated link between a code change and the documentation it affects. PRs are reviewed for code correctness; documentation impact is assessed manually if at all. Conventional commits describe what changed in code — not what documentation needs updating as a result.",
+    "problem": "Every commit that adds a feature, modifies a flow, or changes an API surface potentially invalidates existing documentation. Without a mechanism to detect this, drift accumulates silently. The gap is only discovered when someone — a user, a new hire, or an AI assistant — relies on the outdated doc.",
+    "solution": "laxa vcs-manifest parses conventional commits (feat:, fix:, refactor:, breaking change) and maps affected JTBD jobs to the manifest. Commits that affect a job with no corresponding doc change flag a drift signal. shela's Coverage dimension tracks this over time via syla.",
+    "howItWorks": [
+      "Conventional commit parser extracts scope and type from commit messages",
+      "Scope mapped to JTBD jobs via the import and call pattern registry",
+      "Doc change presence checked: did any .md file touching this job change in the same PR?",
+      "Drift signal fires when a job-affecting commit has no paired doc change",
+      "syla tracks drift score over time as part of the Coverage dimension trend"
+    ],
+    "frameworks": ["Conventional commits spec", "laxa vcs-manifest", "Coverage dimension in syla"],
+    "inPractice": "feat(auth): add device-flow OAuth support ships without a corresponding docs/ change. laxa flags: Coverage.DocCodeDrift — job 'authenticate-via-device-flow' affected by commit abc1234 with no documentation update.",
+    "crosslinks": [
+      { "id": "lx3", "productClass": "laxa", "product": "laxa", "label": "Manual Exercises Outdated" },
+      { "id": "sy2", "productClass": "syla", "product": "syla", "label": "Regressions Ship Silently" }
+    ]
+  },
+  "lx6": {
+    "product": "laxa",
+    "productClass": "laxa",
+    "id": "LX · 06",
+    "title": "FAQ as a Gap Signal Nobody Reads",
+    "hook": {
+      "text": "Your FAQ is a map of what users couldn't find in the main docs. laxa reads it as a JTBD signal — not as content to lint but as evidence of documentation failure.",
+      "source": "chancery-labs · tool breakdown"
+    },
+    "rootCause": "FAQ pages accumulate questions that users asked when the main docs failed them. Each question is a signal that some job — some task, some configuration, some error — was not adequately documented. This signal is present in plain text but never systematically extracted.",
+    "problem": "Teams treat FAQ pages as documentation. laxa treats them as a gap detection instrument. The difference: documentation is what you wrote; gaps are what users couldn't find. FAQ questions mark the boundary between the two.",
+    "solution": "laxa parses FAQ question text as JTBD signals, classifies them against the four-tier taxonomy, and produces a coverage verdict: documented elsewhere, undocumented (genuine gap), or misrouted (belongs in a different doc type). Each finding includes remediation guidance.",
+    "howItWorks": [
+      "FAQ question text parsed via spaCy dep parse → root verb + object → job lookup",
+      "Classified against JTBD taxonomy; confidence score assigned",
+      "Jaccard comparison against full doc set: does a substantive answer exist outside the FAQ?",
+      "Verdict: covered (FAQ answer duplicates main doc), gap (no substantive coverage), misrouted (question maps to a how-to or concept that doesn't exist)",
+      "Misrouted entries flagged as FAQ.SemanticMisrouting — separate from coverage gaps"
+    ],
+    "frameworks": ["FAQ as JTBD signal", "Semantic misrouting detection", "spaCy dep parse", "Jaccard coverage check"],
+    "inPractice": "A FAQ contains: 'How do I rotate my API key?' — no corresponding how-to exists in docs/. laxa flags: LX.06 gap — FAQ question maps to job rotate-api-keys; no how-to exists. Remediation: create docs/how-to/rotate-api-key.md.",
+    "crosslinks": [
+      { "id": "lx4", "productClass": "laxa", "product": "laxa", "label": "Coverage Audit as a Number" },
+      { "id": "lx1", "productClass": "laxa", "product": "laxa", "label": "Job Map Extraction" }
+    ]
+  }
+}
+</script>
+
+<script>
+const M = JSON.parse(document.getElementById('modalDataJSON').textContent);
+
+const TC = {
+  shela: 'background:var(--shela-light);color:var(--shela-accent);',
+  syla:  'background:var(--syla-light);color:var(--syla-accent);',
+  laxa:  'background:var(--laxa-light);color:var(--laxa-accent);'
+};
+
+const AC = {
+  shela: 'var(--shela-accent)',
+  syla:  'var(--syla-accent)',
+  laxa:  'var(--laxa-accent)'
+};
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderModal(d) {
+  const tc = TC[d.productClass] || '';
+  const ac = AC[d.productClass] || 'var(--ink)';
+  let h = '';
+
+  h += '<span class="modal-product-tag" style="' + tc + '">' + esc(d.product) + '</span>';
+  h += '<div class="modal-id">' + esc(d.id) + '</div>';
+  h += '<div class="modal-title">' + esc(d.title) + '</div>';
+
+  if (d.hook) {
+    h += '<div class="modal-quote"><p>' + esc(d.hook.text) + '</p>';
+    if (d.hook.source) h += '<cite>&#8212; ' + esc(d.hook.source) + '</cite>';
+    h += '</div>';
+  }
+
+  h += '<hr class="modal-divider">';
+
+  if (d.rootCause) {
+    h += '<div class="modal-section"><div class="modal-section-label">Root Cause</div><p>' + esc(d.rootCause) + '</p></div>';
+  }
+
+  h += '<div class="modal-section"><div class="modal-section-label">The Problem</div><p>' + esc(d.problem) + '</p></div>';
+
+  if (d.cascade && d.cascade.length) {
+    h += '<div class="modal-section"><div class="modal-section-label">Cascade Effects</div><ul>';
+    d.cascade.forEach(function(i) { h += '<li>' + esc(i) + '</li>'; });
+    h += '</ul></div>';
+  }
+
+  h += '<hr class="modal-divider">';
+
+  h += '<div class="modal-section"><div class="modal-section-label">The Solution</div><p>' + esc(d.solution) + '</p></div>';
+
+  if (d.howItWorks && d.howItWorks.length) {
+    h += '<div class="modal-section"><div class="modal-section-label">How It Works</div><ul>';
+    d.howItWorks.forEach(function(i) { h += '<li>' + esc(i) + '</li>'; });
+    h += '</ul></div>';
+  }
+
+  if (d.frameworks && d.frameworks.length) {
+    h += '<div class="modal-section"><div class="modal-section-label">Frameworks &amp; Methods</div><div class="modal-chips">';
+    d.frameworks.forEach(function(f) { h += '<span class="modal-chip">' + esc(f) + '</span>'; });
+    h += '</div></div>';
+  }
+
+  if (d.inPractice) {
+    h += '<div class="modal-highlight"><strong>In practice:</strong> ' + esc(d.inPractice) + '</div>';
+  }
+
+  if (d.crosslinks && d.crosslinks.length) {
+    h += '<hr class="modal-divider">';
+    h += '<div class="modal-section"><div class="modal-section-label">Connected Problems</div>';
+    d.crosslinks.forEach(function(cl) {
+      h += '<div class="modal-crosslink" data-id="' + esc(cl.id) + '">';
+      h += '<span class="modal-crosslink-badge" style="' + (TC[cl.productClass] || '') + '">' + esc(cl.product) + '</span>';
+      h += '<span class="modal-crosslink-text">' + esc(cl.label) + '</span>';
+      h += '<span class="modal-crosslink-arrow">&#8599;</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  return h;
+}
+
+function openModal(id) {
+  var data = M[id];
+  if (!data) return;
+  document.getElementById('modalContent').innerHTML = renderModal(data);
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('modalPanel').scrollTop = 0;
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+document.getElementById('modalPanel').addEventListener('click', function(e) {
+  var link = e.target.closest('.modal-crosslink');
+  if (link && link.dataset.id) openModal(link.dataset.id);
+});
+</script>
+</body>
+</html>
