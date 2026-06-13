@@ -359,6 +359,12 @@ RULE_DESCRIPTIONS = {
     "Structure.ListLeadColon":          "List block is not preceded by a sentence ending in a colon.",
     "Structure.ImageInTable":           "Image is embedded inside a table cell.",
     "Structure.SingleHeaderRow":        "Table has more than one GFM delimiter row; expected exactly one header separator.",
+    # SP22 — Reference genre completeness
+    "Reference.MissingAuth":            "API reference document has no authentication section and no auth-related vocabulary.",
+    "Reference.MissingRateLimit":       "API reference document has no rate-limiting section and no rate-limit vocabulary.",
+    "Reference.MissingVersioning":      "API reference document has no versioning or changelog section.",
+    "Reference.MissingRequestExample":  "API reference document has no examples section and no HTTP method/curl vocabulary.",
+    "Reference.MissingParameterTable":  "API reference document has no parameters section and no parameter-table vocabulary.",
     # SP19 — Clarity Vale YAML pack
     "Clarity.NoPlease":                 "Avoid 'please' in technical documentation — it adds no information.",
     "Clarity.PositiveLanguage":         "Negative construction found — consider rephrasing positively to clarify what users can do.",
@@ -481,6 +487,12 @@ RULE_SEVERITY_LEVELS = {
     "Structure.ListLeadColon": "suggestion",
     "Structure.ImageInTable": "warning",
     "Structure.SingleHeaderRow": "warning",
+    # SP22 — Reference genre completeness
+    "Reference.MissingAuth": "warning",
+    "Reference.MissingRateLimit": "warning",
+    "Reference.MissingVersioning": "suggestion",
+    "Reference.MissingRequestExample": "warning",
+    "Reference.MissingParameterTable": "suggestion",
     # SP19 — Clarity Vale YAML pack
     "Clarity.NoPlease": "suggestion",
     "Clarity.PositiveLanguage": "suggestion",

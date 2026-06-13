@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- SP22: 5 Reference genre completeness checks — `Reference.MissingAuth`, `Reference.MissingRateLimit`, `Reference.MissingVersioning`, `Reference.MissingRequestExample`, `Reference.MissingParameterTable`; two-tier detection (heading variant OR marker vocabulary); gated to `reference` genre or API-indicator headings; 150-word floor
 - SP20: 6 new markdownlint extension checks — `markdownlint.MD045` (image alt text), `markdownlint.MD046` (fenced code style consistency), `Structure.StackedHeadings`, `Structure.ListLeadColon`, `Structure.ImageInTable`, `Structure.SingleHeaderRow`
 - SP19: 9 new Vale YAML rules in `style-sets/Clarity/` — `NoPlease`, `PositiveLanguage`, `NoGerundHeadings` (genre-gated, excludes `howto`), `HardCodedVersions`, `HeadingSentenceCase`, `HeadingLength`, `NoQuestionHeadings` (genre-gated, excludes `faq`), `ParagraphSentenceCount`, `TableHeaderCase`
 - Vale runner: comma-separated genre list support in `genre:` field (e.g. `genre: howto, concept, reference`) — inclusion-based multi-genre gate
