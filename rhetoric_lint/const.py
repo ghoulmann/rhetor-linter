@@ -17,6 +17,9 @@ MAX_SENTENCE_TOKENS = 45
 # Headings: require a top-level H1
 REQUIRE_H1 = True
 
+# Heading.SiblingParallelism: minimum H2 siblings to apply the check
+HEADING_PARALLELISM_MIN_GROUP: int = 3
+
 # Simple pronoun list (for cohesion checks)
 PRONOUNS = [
     "he",
@@ -264,6 +267,7 @@ RULE_DESCRIPTIONS = {
     "Heading.VividScent":               "Heading language is weak or vague; a more specific heading would improve navigation.",
     "Heading.InformationScent":         "Heading gives no indication of what the section contains.",
     "Heading.NearDuplicate":            "Two headings are nearly identical (Jaccard ≥ 0.70), creating navigation ambiguity.",
+    "Heading.SiblingParallelism":       "H2 heading uses a different grammatical lead (verb vs. noun) than most siblings under the same H1.",
     "Unity.HeadingTopicCoherence":      "Heading and topic sentence share too few content words; the section may not deliver what the heading promises.",
     "Unity.TopicSectionDrift":          "Topic sentence content words overlap poorly with the body; the section drifts from its stated topic.",
     "Unity.NounDensity":                "Noun ratio is below the minimum threshold, indicating thin or vague prose.",
@@ -396,6 +400,7 @@ RULE_SEVERITY_LEVELS = {
     # Suggestions (polish)
     "Heading.VividScent": "suggestion",
     "Heading.NearDuplicate": "suggestion",
+    "Heading.SiblingParallelism": "suggestion",
     "Rhetoric.ThroatClearing": "suggestion",
     "Attention.SplitAttention": "suggestion",
     "Attention.Chunking": "suggestion",

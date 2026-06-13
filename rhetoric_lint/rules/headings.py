@@ -264,6 +264,72 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "check": "Heading.InformationScent",
             })
 
+    # Heading.SiblingParallelism (SP21): H2 groups under the same H1 should share
+    # the same grammatical lead — all verb-led or all noun-led.
+    if nlp:
+        min_group = getattr(const, "HEADING_PARALLELISM_MIN_GROUP", 3) if const else 3
+        # Build groups: list of H2 headings per H1 section
+        h2_groups: List[List[Dict]] = []
+        current_group: List[Dict] = []
+        for h in headings:
+            if h["level"] == 1:
+                if current_group:
+                    h2_groups.append(current_group)
+                current_group = []
+            elif h["level"] == 2 and h["text"]:
+                current_group.append(h)
+        if current_group:
+            h2_groups.append(current_group)
+
+        for group in h2_groups:
+            if len(group) < min_group:
+                continue
+            # Classify each heading: "verb", "noun", or "other"
+            classified = []
+            for h in group:
+                tag = "other"
+                try:
+                    hdoc = nlp(h["text"])
+                    for tok in hdoc:
+                        if tok.is_alpha and not tok.is_space:
+                            if tok.tag_ == "VB":
+                                tag = "verb"
+                            elif tok.tag_ in ("NN", "NNS", "NNP", "NNPS", "JJ", "CD"):
+                                tag = "noun"
+                            break
+                except Exception:
+                    pass
+                classified.append((h, tag))
+
+            total = len(classified)
+            verb_count = sum(1 for _, t in classified if t == "verb")
+            noun_count = sum(1 for _, t in classified if t == "noun")
+            majority_tag = "verb" if verb_count >= noun_count else "noun"
+            minority_tag = "noun" if majority_tag == "verb" else "verb"
+            minority_count = noun_count if majority_tag == "verb" else verb_count
+
+            # Fire only when minority < 33% of group and at least one minority member
+            if minority_count == 0 or minority_count / total >= 0.33:
+                continue
+
+            for h, tag in classified:
+                if tag != minority_tag:
+                    continue
+                h_line = _line_from_pos(text, h["pos"])
+                issues.append({
+                    "path": path,
+                    "line": h_line,
+                    "message": (
+                        f"Heading '{h['text']}' is {tag}-led while most siblings are "
+                        f"{majority_tag}-led — align grammatical structure across H2 headings in this section."
+                    ),
+                    "severity": (
+                        const.RULE_SEVERITY_LEVELS.get("Heading.SiblingParallelism", "suggestion")
+                        if const else "suggestion"
+                    ),
+                    "check": "Heading.SiblingParallelism",
+                })
+
     # Heading.NearDuplicate: flag heading pairs with high content-word Jaccard similarity
     if nlp:
         for idx_a, h_a in enumerate(headings):
