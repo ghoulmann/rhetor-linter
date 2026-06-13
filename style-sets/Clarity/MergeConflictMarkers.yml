@@ -1,0 +1,9 @@
+extends: existence
+message: 'Merge conflict marker "%s" found — resolve before committing.'
+level: error
+scope: raw
+nonword: true
+tokens:
+  - '<<<<<<< '
+  - '======='
+  - '>>>>>>> '

@@ -393,6 +393,7 @@ RULE_DESCRIPTIONS = {
     "Clarity.NoQuestionHeadings":       "Question heading found outside a FAQ section — reserve question headings for FAQ docs.",
     "Clarity.ParagraphSentenceCount":   "Paragraph has more than 5 sentences — break into shorter paragraphs.",
     "Clarity.TableHeaderCase":          "Table header is not sentence-cased — capitalize the first word only (proper nouns excepted).",
+    "Clarity.MergeConflictMarkers":     "Merge conflict marker found — resolve before committing.",
 }
 
 # ---------------------------------------------------------------------------
@@ -401,6 +402,7 @@ RULE_SEVERITY_LEVELS = {
     # Errors (hard stops)
     "Coherence.IslandSentence": "error",
     "Completeness.ResultVerification": "error",
+    "Clarity.MergeConflictMarkers": "error",
     # Warnings (quality concerns)
     "Heading.Generic": "warning",
     "Heading.InformationScent": "warning",

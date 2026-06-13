@@ -257,3 +257,40 @@ class TestMultiGenreGate:
     def test_no_question_fires_in_tutorial(self):
         issues = self.runner.check(_heading_ctx("Why does this fail?", genre="tutorial"))
         assert any("NoQuestionHeadings" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# Clarity.MergeConflictMarkers
+# ---------------------------------------------------------------------------
+
+class TestMergeConflictMarkers:
+    def setup_method(self):
+        self.runner = _runner()
+
+    def _raw_ctx(self, text: str) -> dict:
+        return {
+            "path": "test.md",
+            "text": text,
+            "genre": "general",
+            "sections": [],
+        }
+
+    def test_flags_conflict_head(self):
+        text = "<<<<<<< HEAD\nsome content\n"
+        issues = self.runner.check(self._raw_ctx(text))
+        assert any("MergeConflictMarkers" in c for c in _checks(issues))
+
+    def test_flags_conflict_separator(self):
+        text = "some content\n=======\nother content\n"
+        issues = self.runner.check(self._raw_ctx(text))
+        assert any("MergeConflictMarkers" in c for c in _checks(issues))
+
+    def test_flags_conflict_end(self):
+        text = "other content\n>>>>>>> feature-branch\n"
+        issues = self.runner.check(self._raw_ctx(text))
+        assert any("MergeConflictMarkers" in c for c in _checks(issues))
+
+    def test_no_flag_clean_text(self):
+        text = "This document has no merge conflicts.\n\nAll content is resolved.\n"
+        issues = self.runner.check(self._raw_ctx(text))
+        assert not any("MergeConflictMarkers" in c for c in _checks(issues))

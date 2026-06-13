@@ -45,7 +45,7 @@ _SEVERITY_MAP = {
 }
 
 _SCOPE_PROSE = frozenset({"text", "sentence", "paragraph", "heading", "summary"})
-_SCOPE_CODE = frozenset({"code", "raw", "pre"})
+_SCOPE_CODE = frozenset({"code", "pre"})
 
 # Node types that correspond to non-prose scopes (skipped for prose scope rules)
 _NON_PROSE_NODE_TYPES = frozenset({
@@ -390,6 +390,12 @@ def _extract_scope(scope: str, context: Dict[str, Any]) -> Iterator[Tuple[str, i
                         sent_text = span.text if span is not None else ""
                         if sent_text.strip():
                             yield sent_text, sent_line
+        return
+
+    if scope == "raw":
+        # Raw document text — scan every line including blank ones
+        for i, line in enumerate(text.splitlines(), start=1):
+            yield line, i
         return
 
     if scope in _SCOPE_CODE:
