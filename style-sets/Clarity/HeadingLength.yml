@@ -1,0 +1,8 @@
+extends: existence
+message: "Heading is too long (%s) — aim for under 10 words to improve navigation scannability."
+level: suggestion
+scope: heading
+ignorecase: true
+nonword: true
+tokens:
+  - \S+(?:\s+\S+){9,}

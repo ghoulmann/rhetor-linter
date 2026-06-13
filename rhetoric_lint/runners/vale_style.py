@@ -174,8 +174,11 @@ class ValeStyleRunner(StyleRunner):
         issues: List[Dict[str, Any]] = []
         genre = context.get("genre", "general")
         for rule in self._rules:
-            if rule.genre and rule.genre != genre:
-                continue
+            if rule.genre:
+                # genre may be a comma-separated inclusion list (e.g. "howto, tutorial")
+                allowed = {g.strip() for g in rule.genre.split(",")}
+                if genre not in allowed:
+                    continue
             try:
                 issues.extend(_apply_rule(rule, context))
             except Exception:
@@ -192,7 +195,8 @@ def _compile_rule(rule: _Rule) -> None:
 
     def _wrap(token: str) -> str:
         if rule.nonword:
-            return re.escape(token)
+            # nonword:true → raw regex token, no word boundaries, no escaping
+            return token
         return r"\b" + re.escape(token) + r"\b"
 
     patterns: List[Tuple[re.Pattern, str]] = []

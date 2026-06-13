@@ -354,6 +354,21 @@ RULE_DESCRIPTIONS = {
     "Completeness.UnsupportedClaim":    "Assertion signal (therefore, this means, thus, etc.) not followed by evidence, an example, or a code sample within 2 sentences.",
     # SP12 — JTBD coverage
     "Coverage.MissingJobCoverage":      "A JTBD job detected by jtbd-tool has no documentation coverage in this file.",
+    # SP20 — markdownlint extensions
+    "Structure.StackedHeadings":        "Heading immediately follows another heading with no content between them (empty section).",
+    "Structure.ListLeadColon":          "List block is not preceded by a sentence ending in a colon.",
+    "Structure.ImageInTable":           "Image is embedded inside a table cell.",
+    "Structure.SingleHeaderRow":        "Table has more than one GFM delimiter row; expected exactly one header separator.",
+    # SP19 — Clarity Vale YAML pack
+    "Clarity.NoPlease":                 "Avoid 'please' in technical documentation — it adds no information.",
+    "Clarity.PositiveLanguage":         "Negative construction found — consider rephrasing positively to clarify what users can do.",
+    "Clarity.NoGerundHeadings":         "Gerund heading detected — prefer a noun or imperative form for non-task sections.",
+    "Clarity.HardCodedVersions":        "Hard-coded version number found — use a variable, placeholder, or changelog link instead.",
+    "Clarity.HeadingSentenceCase":      "Heading is not sentence-cased — capitalize the first word only (proper nouns excepted).",
+    "Clarity.HeadingLength":            "Heading exceeds 10 words — shorter headings improve navigation scannability.",
+    "Clarity.NoQuestionHeadings":       "Question heading found outside a FAQ section — reserve question headings for FAQ docs.",
+    "Clarity.ParagraphSentenceCount":   "Paragraph has more than 5 sentences — break into shorter paragraphs.",
+    "Clarity.TableHeaderCase":          "Table header is not sentence-cased — capitalize the first word only (proper nouns excepted).",
 }
 
 # ---------------------------------------------------------------------------
@@ -461,6 +476,21 @@ RULE_SEVERITY_LEVELS = {
     "Completeness.UnsupportedClaim": "suggestion",
     # SP12 — JTBD coverage
     "Coverage.MissingJobCoverage": "warning",
+    # SP20 — markdownlint extensions
+    "Structure.StackedHeadings": "warning",
+    "Structure.ListLeadColon": "suggestion",
+    "Structure.ImageInTable": "warning",
+    "Structure.SingleHeaderRow": "warning",
+    # SP19 — Clarity Vale YAML pack
+    "Clarity.NoPlease": "suggestion",
+    "Clarity.PositiveLanguage": "suggestion",
+    "Clarity.NoGerundHeadings": "suggestion",
+    "Clarity.HardCodedVersions": "suggestion",
+    "Clarity.HeadingSentenceCase": "suggestion",
+    "Clarity.HeadingLength": "suggestion",
+    "Clarity.NoQuestionHeadings": "suggestion",
+    "Clarity.ParagraphSentenceCount": "suggestion",
+    "Clarity.TableHeaderCase": "suggestion",
 }
 
 # ---------------------------------------------------------------------------

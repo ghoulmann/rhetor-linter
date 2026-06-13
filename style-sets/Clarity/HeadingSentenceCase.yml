@@ -1,0 +1,63 @@
+extends: capitalization
+message: "'%s' should be sentence-cased — capitalize the first word only (proper nouns excepted)."
+level: suggestion
+scope: heading
+match: $sentence
+exceptions:
+  - GitHub
+  - GitLab
+  - OAuth
+  - OAuth2
+  - OpenID
+  - AWS
+  - GCP
+  - Azure
+  - API
+  - APIs
+  - CLI
+  - SDK
+  - SDKs
+  - REST
+  - GraphQL
+  - gRPC
+  - HTTP
+  - HTTPS
+  - JSON
+  - YAML
+  - SQL
+  - NoSQL
+  - PostgreSQL
+  - MySQL
+  - MongoDB
+  - Redis
+  - Kafka
+  - Kubernetes
+  - Docker
+  - Terraform
+  - Helm
+  - Linux
+  - macOS
+  - Windows
+  - Python
+  - JavaScript
+  - TypeScript
+  - Go
+  - Rust
+  - Java
+  - Node.js
+  - React
+  - Vue
+  - CI/CD
+  - DevOps
+  - SRE
+  - RBAC
+  - OIDC
+  - SAML
+  - TLS
+  - SSL
+  - URL
+  - URLs
+  - UUID
+  - CRUD
+  - DRY
+  - SOLID

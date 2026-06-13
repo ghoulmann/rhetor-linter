@@ -1,0 +1,8 @@
+extends: existence
+message: "Avoid '%s' in technical documentation — it adds no information and can feel patronizing."
+level: suggestion
+scope: paragraph
+ignorecase: true
+nonword: false
+tokens:
+  - please

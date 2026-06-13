@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- SP20: 6 new markdownlint extension checks — `markdownlint.MD045` (image alt text), `markdownlint.MD046` (fenced code style consistency), `Structure.StackedHeadings`, `Structure.ListLeadColon`, `Structure.ImageInTable`, `Structure.SingleHeaderRow`
+- SP19: 9 new Vale YAML rules in `style-sets/Clarity/` — `NoPlease`, `PositiveLanguage`, `NoGerundHeadings` (genre-gated, excludes `howto`), `HardCodedVersions`, `HeadingSentenceCase`, `HeadingLength`, `NoQuestionHeadings` (genre-gated, excludes `faq`), `ParagraphSentenceCount`, `TableHeaderCase`
+- Vale runner: comma-separated genre list support in `genre:` field (e.g. `genre: howto, concept, reference`) — inclusion-based multi-genre gate
+- Vale runner: `nonword: true` now uses tokens as raw regex patterns (no `re.escape`), matching Vale's actual semantics; `nonword: false` (default) continues treating tokens as literals with word boundaries
 - `Coverage.MissingJobCoverage` rule (SP12): fires a warning for each JTBD job in a `jtbd-manifest.json` where `coverage == "missing"` and no paragraph in the file meets the Jaccard threshold; disabled when `--jtbd-manifest` is not set
 - `--jtbd-manifest <path>` CLI flag: loads a jtbd-tool manifest and enables `Coverage.MissingJobCoverage`
 - `const.JTBD_MANIFEST_PATH` and `const.JTBD_COVERAGE_JACCARD_MIN` (default 0.30)

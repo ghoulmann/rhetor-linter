@@ -1,0 +1,9 @@
+extends: existence
+message: "Question heading '%s' — reserve question headings for FAQ sections."
+level: suggestion
+scope: heading
+ignorecase: true
+nonword: true
+genre: howto, tutorial, concept, explanation, reference, adr, postmortem, changelog, readme, general
+tokens:
+  - \?\s*$

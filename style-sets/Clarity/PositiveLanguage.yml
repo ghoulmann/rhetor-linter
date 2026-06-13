@@ -1,0 +1,14 @@
+extends: existence
+message: "Negative construction '%s' — consider rephrasing positively to clarify what users can do."
+level: suggestion
+scope: paragraph
+ignorecase: true
+nonword: false
+tokens:
+  - cannot
+  - is not supported
+  - will not work
+  - does not support
+  - not available
+  - not possible
+  - not allowed

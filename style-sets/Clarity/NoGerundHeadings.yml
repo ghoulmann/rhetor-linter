@@ -1,0 +1,23 @@
+extends: existence
+message: "Gerund heading: '%s' leads with a verb-ing form. Use a noun (concept docs) or imperative (how-to docs)."
+level: suggestion
+scope: heading
+ignorecase: true
+nonword: true
+genre: tutorial, concept, explanation, reference, adr, postmortem, changelog, readme, general
+tokens:
+  - \b\w+ing\b
+exceptions:
+  - following
+  - existing
+  - remaining
+  - underlying
+  - corresponding
+  - including
+  - during
+  - ongoing
+  - resulting
+  - concerning
+  - upcoming
+  - outstanding
+  - long-running

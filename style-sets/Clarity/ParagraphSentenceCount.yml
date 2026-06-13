@@ -1,0 +1,6 @@
+extends: metric
+message: "Paragraph has too many sentences (%s found, maximum 5) — break into shorter paragraphs."
+level: suggestion
+scope: paragraph
+formula: sentences
+condition: "> 5"

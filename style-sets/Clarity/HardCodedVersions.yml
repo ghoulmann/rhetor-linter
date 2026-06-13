@@ -1,0 +1,8 @@
+extends: existence
+message: "Hard-coded version number '%s' — use a variable, placeholder, or link to the changelog instead."
+level: suggestion
+scope: paragraph
+ignorecase: false
+nonword: true
+tokens:
+  - \bv\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9.]+)?\b

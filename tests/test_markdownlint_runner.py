@@ -611,3 +611,156 @@ class TestCli2CustomRules:
         # (The cli2 config override is applied when config is merged in check())
         # Just verify no crash and config is stored
         assert r._cli2_config.get("MD013") is False
+
+
+# ---------------------------------------------------------------------------
+# SP20 — MD045: Images should have alternate text
+# ---------------------------------------------------------------------------
+
+class TestMD045:
+    def test_flags_empty_alt(self):
+        r = _runner()
+        issues = r.check(_ctx("![](https://example.com/img.png)\n"))
+        assert any("MD045" in c for c in _checks(issues))
+
+    def test_flags_whitespace_alt(self):
+        r = _runner()
+        issues = r.check(_ctx("![ ](https://example.com/img.png)\n"))
+        assert any("MD045" in c for c in _checks(issues))
+
+    def test_no_flag_with_alt(self):
+        r = _runner()
+        issues = r.check(_ctx("![a diagram](https://example.com/img.png)\n"))
+        assert not any("MD045" in c for c in _checks(issues))
+
+    def test_flags_html_img_no_alt(self):
+        r = _runner()
+        issues = r.check(_ctx('<img src="img.png">\n'))
+        assert any("MD045" in c for c in _checks(issues))
+
+    def test_flags_html_img_empty_alt(self):
+        r = _runner()
+        issues = r.check(_ctx('<img src="img.png" alt="">\n'))
+        assert any("MD045" in c for c in _checks(issues))
+
+    def test_no_flag_html_img_with_alt(self):
+        r = _runner()
+        issues = r.check(_ctx('<img src="img.png" alt="diagram">\n'))
+        assert not any("MD045" in c for c in _checks(issues))
+
+    def test_no_flag_inside_code_fence(self):
+        r = _runner()
+        issues = r.check(_ctx("```\n![](img.png)\n```\n"))
+        assert not any("MD045" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP20 — MD046: Fenced code block style consistency
+# ---------------------------------------------------------------------------
+
+class TestMD046:
+    def test_flags_mixed_consistent(self):
+        r = _runner()
+        text = "```python\ncode\n```\n\n~~~bash\ncode\n~~~\n"
+        issues = r.check(_ctx(text))
+        assert any("MD046" in c for c in _checks(issues))
+
+    def test_no_flag_all_backtick(self):
+        r = _runner()
+        text = "```python\ncode\n```\n\n```bash\ncode\n```\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD046" in c for c in _checks(issues))
+
+    def test_no_flag_all_tilde(self):
+        r = _runner()
+        text = "~~~python\ncode\n~~~\n\n~~~bash\ncode\n~~~\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD046" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP20 — Structure.StackedHeadings
+# ---------------------------------------------------------------------------
+
+class TestStructureStackedHeadings:
+    def test_flags_stacked(self):
+        r = _runner()
+        issues = r.check(_ctx("## Section A\n\n## Section B\n"))
+        assert any("Structure.StackedHeadings" in c for c in _checks(issues))
+
+    def test_no_flag_with_content(self):
+        r = _runner()
+        issues = r.check(_ctx("## Section A\n\nSome text here.\n\n## Section B\n"))
+        assert not any("Structure.StackedHeadings" in c for c in _checks(issues))
+
+    def test_no_flag_single_heading(self):
+        r = _runner()
+        issues = r.check(_ctx("## Section A\n\nContent.\n"))
+        assert not any("Structure.StackedHeadings" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP20 — Structure.ListLeadColon
+# ---------------------------------------------------------------------------
+
+class TestStructureListLeadColon:
+    def test_flags_list_without_colon(self):
+        r = _runner()
+        issues = r.check(_ctx("This is prose.\n\n- item one\n- item two\n"))
+        assert any("Structure.ListLeadColon" in c for c in _checks(issues))
+
+    def test_no_flag_list_after_colon(self):
+        r = _runner()
+        issues = r.check(_ctx("The following items:\n\n- item one\n- item two\n"))
+        assert not any("Structure.ListLeadColon" in c for c in _checks(issues))
+
+    def test_no_flag_list_after_heading(self):
+        r = _runner()
+        issues = r.check(_ctx("## Section\n\n- item one\n- item two\n"))
+        assert not any("Structure.ListLeadColon" in c for c in _checks(issues))
+
+    def test_no_flag_nested_list(self):
+        r = _runner()
+        issues = r.check(_ctx("The options:\n\n- item one\n  - sub item\n"))
+        assert not any("Structure.ListLeadColon" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP20 — Structure.ImageInTable
+# ---------------------------------------------------------------------------
+
+class TestStructureImageInTable:
+    def test_flags_image_in_table(self):
+        r = _runner()
+        text = "| col1 | col2 |\n|---|---|\n| ![alt](img.png) | text |\n"
+        issues = r.check(_ctx(text))
+        assert any("Structure.ImageInTable" in c for c in _checks(issues))
+
+    def test_no_flag_image_outside_table(self):
+        r = _runner()
+        issues = r.check(_ctx("![alt](img.png)\n"))
+        assert not any("Structure.ImageInTable" in c for c in _checks(issues))
+
+    def test_no_flag_delimiter_row(self):
+        r = _runner()
+        text = "| col1 | col2 |\n|---|---|\n| text | text |\n"
+        issues = r.check(_ctx(text))
+        assert not any("Structure.ImageInTable" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP20 — Structure.SingleHeaderRow
+# ---------------------------------------------------------------------------
+
+class TestStructureSingleHeaderRow:
+    def test_flags_two_delimiter_rows(self):
+        r = _runner()
+        text = "| A | B |\n|---|---|\n| x | y |\n|---|---|\n| p | q |\n"
+        issues = r.check(_ctx(text))
+        assert any("Structure.SingleHeaderRow" in c for c in _checks(issues))
+
+    def test_no_flag_one_delimiter_row(self):
+        r = _runner()
+        text = "| A | B |\n|---|---|\n| x | y |\n"
+        issues = r.check(_ctx(text))
+        assert not any("Structure.SingleHeaderRow" in c for c in _checks(issues))

@@ -492,6 +492,11 @@ def _md025(
 
 
 _LIST_ITEM_RE = re.compile(r"^(\s*)([-*+]|\d+[.)]) ")
+_TABLE_ROW_RE = re.compile(r"^\s*\|")
+_TABLE_DELIM_RE = re.compile(r"^\s*\|(?:\s*:?-+:?\s*\|)+\s*$")
+_IMG_EMPTY_ALT_RE = re.compile(r"!\[\s*\]\(")
+_IMG_HTML_RE = re.compile(r"<img\b([^>]*)>", re.IGNORECASE)
+_IMG_ALT_ATTR_RE = re.compile(r'\balt\s*=\s*(?:"([^"]*)"|\'([^\']*)\')', re.IGNORECASE)
 
 
 def _md031(
@@ -608,6 +613,140 @@ def _md032(
     return issues
 
 
+def _md045(
+    lines: List[str],
+    cfg: Dict[str, Any],
+    suppressed: Dict[int, Set[str]],
+    fence_set: Set[int],
+    path: str,
+    severity: str,
+) -> List[Dict[str, Any]]:
+    """MD045: Images should have alternate text."""
+    issues = []
+    for i, line in enumerate(lines, start=1):
+        if i in fence_set:
+            continue
+        if _is_suppressed(suppressed, i, "MD045"):
+            continue
+        stripped = line.rstrip("\n\r")
+        # Markdown image with empty alt: ![](...) or ![ ](...)
+        if _IMG_EMPTY_ALT_RE.search(stripped):
+            issues.append({
+                "path": path, "line": i, "column": 1,
+                "message": "Images should have alternate text (alt text)",
+                "severity": severity, "check": "markdownlint.MD045",
+            })
+            continue
+        # HTML <img> with missing or empty alt attribute
+        for m in _IMG_HTML_RE.finditer(stripped):
+            attrs = m.group(1)
+            alt_m = _IMG_ALT_ATTR_RE.search(attrs)
+            if alt_m is None or (alt_m.group(1) or alt_m.group(2) or "") == "":
+                issues.append({
+                    "path": path, "line": i, "column": m.start() + 1,
+                    "message": "Images should have alternate text (alt text)",
+                    "severity": severity, "check": "markdownlint.MD045",
+                })
+    return issues
+
+
+def _md046(
+    lines: List[str],
+    cfg: Dict[str, Any],
+    suppressed: Dict[int, Set[str]],
+    fence_set: Set[int],
+    path: str,
+    severity: str,
+) -> List[Dict[str, Any]]:
+    """MD046: Code block style — backtick vs tilde consistency."""
+    style_cfg = cfg.get("style", "consistent")
+
+    # Collect all fence openers and their style
+    backtick_lines: List[int] = []
+    tilde_lines: List[int] = []
+    inside = False
+    open_char = ""
+    open_len = 0
+
+    for i, line in enumerate(lines, start=1):
+        m = _FENCE_START_RE.match(line)
+        if not inside:
+            if m:
+                ch = m.group(1)[0]
+                open_char = ch
+                open_len = len(m.group(1))
+                inside = True
+                if ch == "`":
+                    backtick_lines.append(i)
+                else:
+                    tilde_lines.append(i)
+        else:
+            if m and m.group(1)[0] == open_char and len(m.group(1)) >= open_len:
+                inside = False
+
+    issues = []
+
+    if style_cfg == "consistent":
+        if not backtick_lines or not tilde_lines:
+            return []
+        # Minority style = whichever has fewer occurrences
+        if len(backtick_lines) <= len(tilde_lines):
+            minority_lines = backtick_lines
+            majority_char = "~"
+        else:
+            minority_lines = tilde_lines
+            majority_char = "`"
+        for line_no in minority_lines:
+            if _is_suppressed(suppressed, line_no, "MD046"):
+                continue
+            raw = lines[line_no - 1].rstrip("\n\r")
+            fence_match = _FENCE_START_RE.match(raw)
+            if fence_match:
+                fix = majority_char * len(fence_match.group(1)) + raw[fence_match.end():]
+            else:
+                fix = None
+            issue: Dict[str, Any] = {
+                "path": path, "line": line_no, "column": 1,
+                "message": "Code block style should be consistent; use the majority style",
+                "severity": severity, "check": "markdownlint.MD046",
+            }
+            if fix is not None:
+                issue["fix"] = fix
+            issues.append(issue)
+    elif style_cfg == "fenced":
+        for line_no in tilde_lines:
+            if _is_suppressed(suppressed, line_no, "MD046"):
+                continue
+            raw = lines[line_no - 1].rstrip("\n\r")
+            fence_match = _FENCE_START_RE.match(raw)
+            fix = "`" * len(fence_match.group(1)) + raw[fence_match.end():] if fence_match else None
+            issue = {
+                "path": path, "line": line_no, "column": 1,
+                "message": "Code block style should use backticks (fenced)",
+                "severity": severity, "check": "markdownlint.MD046",
+            }
+            if fix is not None:
+                issue["fix"] = fix
+            issues.append(issue)
+    elif style_cfg == "tilde":
+        for line_no in backtick_lines:
+            if _is_suppressed(suppressed, line_no, "MD046"):
+                continue
+            raw = lines[line_no - 1].rstrip("\n\r")
+            fence_match = _FENCE_START_RE.match(raw)
+            fix = "~" * len(fence_match.group(1)) + raw[fence_match.end():] if fence_match else None
+            issue = {
+                "path": path, "line": line_no, "column": 1,
+                "message": "Code block style should use tildes",
+                "severity": severity, "check": "markdownlint.MD046",
+            }
+            if fix is not None:
+                issue["fix"] = fix
+            issues.append(issue)
+
+    return issues
+
+
 def _md040(
     lines: List[str],
     cfg: Dict[str, Any],
@@ -690,7 +829,157 @@ _RULE_FNS = {
     "MD031": _md031,
     "MD032": _md032,
     "MD040": _md040,
+    "MD045": _md045,
+    "MD046": _md046,
 }
+
+
+# ---------------------------------------------------------------------------
+# SP20 — Structure extension rules
+# ---------------------------------------------------------------------------
+
+def _structure_stacked_headings(
+    lines: List[str],
+    cfg: Dict[str, Any],
+    suppressed: Dict[int, Set[str]],
+    fence_set: Set[int],
+    path: str,
+    severity: str,
+) -> List[Dict[str, Any]]:
+    """Structure.StackedHeadings: heading followed immediately by another heading (only blanks between)."""
+    if cfg.get("allow_empty_sections", False):
+        return []
+    issues = []
+    headings = _heading_info(lines)
+    if len(headings) < 2:
+        return []
+    for idx in range(len(headings) - 1):
+        curr_line = headings[idx][0]
+        next_line = headings[idx + 1][0]
+        # Check all lines between curr_line and next_line
+        between = lines[curr_line:next_line - 1]  # 0-indexed: curr_line..next_line-2
+        has_content = any(l.strip() for l in between)
+        if not has_content and not _is_suppressed(suppressed, next_line, "Structure.StackedHeadings"):
+            issues.append({
+                "path": path, "line": next_line, "column": 1,
+                "message": "Heading immediately follows another heading with no content between them (empty section)",
+                "severity": severity, "check": "Structure.StackedHeadings",
+            })
+    return issues
+
+
+def _structure_list_lead_colon(
+    lines: List[str],
+    cfg: Dict[str, Any],
+    suppressed: Dict[int, Set[str]],
+    fence_set: Set[int],
+    path: str,
+    severity: str,
+) -> List[Dict[str, Any]]:
+    """Structure.ListLeadColon: list block must be preceded by a sentence ending in a colon."""
+    issues = []
+    n = len(lines)
+    in_list = False
+
+    for i, line in enumerate(lines, start=1):
+        if i in fence_set:
+            in_list = False
+            continue
+        is_item = bool(_LIST_ITEM_RE.match(line))
+        if is_item and not in_list:
+            in_list = True
+            # Find the immediately preceding non-blank line
+            prev_content_idx = i - 2  # 0-indexed, one line above current
+            while prev_content_idx >= 0 and lines[prev_content_idx].strip() == "":
+                prev_content_idx -= 1
+            if prev_content_idx < 0:
+                continue
+            prev_line = lines[prev_content_idx].rstrip("\n\r").rstrip()
+            # Skip: previous is a heading
+            if _HEADING_ATX_RE.match(prev_line):
+                continue
+            # Skip: previous is a code fence line
+            if _FENCE_START_RE.match(prev_line):
+                continue
+            # Skip: previous is also a list item (nested/continuation)
+            if _LIST_ITEM_RE.match(prev_line):
+                continue
+            if not prev_line.endswith(":"):
+                line_no = prev_content_idx + 1  # 1-indexed
+                if not _is_suppressed(suppressed, i, "Structure.ListLeadColon"):
+                    issues.append({
+                        "path": path, "line": i, "column": 1,
+                        "message": "List should be preceded by a sentence ending with a colon",
+                        "severity": severity, "check": "Structure.ListLeadColon",
+                    })
+        elif not is_item:
+            in_list = False
+    return issues
+
+
+def _structure_image_in_table(
+    lines: List[str],
+    cfg: Dict[str, Any],
+    suppressed: Dict[int, Set[str]],
+    fence_set: Set[int],
+    path: str,
+    severity: str,
+) -> List[Dict[str, Any]]:
+    """Structure.ImageInTable: images should not be embedded inside table cells."""
+    issues = []
+    for i, line in enumerate(lines, start=1):
+        if i in fence_set:
+            continue
+        if not _TABLE_ROW_RE.match(line):
+            continue
+        if _TABLE_DELIM_RE.match(line):
+            continue
+        if _is_suppressed(suppressed, i, "Structure.ImageInTable"):
+            continue
+        if "![" in line:
+            issues.append({
+                "path": path, "line": i, "column": line.index("![") + 1,
+                "message": "Images should not be embedded inside table cells",
+                "severity": severity, "check": "Structure.ImageInTable",
+            })
+    return issues
+
+
+def _structure_single_header_row(
+    lines: List[str],
+    cfg: Dict[str, Any],
+    suppressed: Dict[int, Set[str]],
+    fence_set: Set[int],
+    path: str,
+    severity: str,
+) -> List[Dict[str, Any]]:
+    """Structure.SingleHeaderRow: table must have exactly one GFM delimiter row."""
+    issues = []
+    # Walk lines, find table regions (consecutive lines with |)
+    n = len(lines)
+    i = 0
+    while i < n:
+        line_no = i + 1
+        if line_no in fence_set or not _TABLE_ROW_RE.match(lines[i]):
+            i += 1
+            continue
+        # Start of a table region
+        table_start = line_no
+        delim_lines: List[int] = []
+        while i < n and _TABLE_ROW_RE.match(lines[i]) and line_no not in fence_set:
+            line_no = i + 1
+            if _TABLE_DELIM_RE.match(lines[i]):
+                delim_lines.append(line_no)
+            i += 1
+        if len(delim_lines) > 1:
+            for dl in delim_lines[1:]:
+                if not _is_suppressed(suppressed, dl, "Structure.SingleHeaderRow"):
+                    issues.append({
+                        "path": path, "line": dl, "column": 1,
+                        "message": "Table has more than one delimiter row; expected exactly one header separator",
+                        "severity": severity, "check": "Structure.SingleHeaderRow",
+                    })
+    return issues
 
 
 # ---------------------------------------------------------------------------
@@ -882,6 +1171,26 @@ class MarkdownlintRunner(StyleRunner):
         if cfg41 is not None:
             try:
                 issues.extend(_md041(lines, cfg41, suppressed, fence_set, path, _severity("MD041"), genre))
+            except Exception:
+                pass
+
+        # SP20: Structure extension rules
+        _structure_rules = [
+            ("Structure.StackedHeadings", _structure_stacked_headings),
+            ("Structure.ListLeadColon", _structure_list_lead_colon),
+            ("Structure.ImageInTable", _structure_image_in_table),
+            ("Structure.SingleHeaderRow", _structure_single_header_row),
+        ]
+        for rule_id, fn in _structure_rules:
+            cfg_entry = config.get(rule_id)
+            if isinstance(cfg_entry, dict) and cfg_entry.get("disabled"):
+                continue
+            if cfg_entry is False:
+                continue
+            sev = _severity(rule_id)
+            rule_cfg_dict = cfg_entry if isinstance(cfg_entry, dict) else {}
+            try:
+                issues.extend(fn(lines, rule_cfg_dict, suppressed, fence_set, path, sev))
             except Exception:
                 pass
 
