@@ -13,6 +13,17 @@ Technical documentation in engineering organizations has no continuous quality s
 
 The consequence for teams: low-quality docs surface through support load, onboarding friction, and LLM retrieval failures — not through any dashboard or gate that could have caught them earlier.
 
+### Why this matters more now: AI ingestion
+
+Teams increasingly use AI assistants, support bots, and RAG pipelines grounded on their documentation. Research on retrieval-augmented generation identifies the documentation failure modes that most reliably produce bad outputs:
+
+- **Coverage gaps** → hallucination. When a user or integration job has no documentation, a grounded AI answers from adjacent context rather than admitting it doesn't know.
+- **Section size and topic drift** → retrieval fragmentation. Sections exceeding the RAG-optimal window (400–600 words) are split mid-argument at ingestion; sections where the body drifts from the heading retrieve against the wrong query.
+- **Terminology inconsistency** → embedding collision. When the same concept has multiple names across the doc set, embedding-based retrieval returns the wrong docs.
+- **Stale content** → confident wrong answers. Code-docs drift is the most dangerous failure mode: the AI answers from a doc that was once correct and is now wrong.
+
+These are not edge cases. They are the primary driver of LLM-based documentation failure at scale. Chancery Labs addresses all of them at the source — before content enters any ingestion pipeline.
+
 **What we need:**
 
 - A linter that catches rhetorical problems (not just syntax) and understands what kind of doc it's reading (concept, how-to, reference, tutorial)

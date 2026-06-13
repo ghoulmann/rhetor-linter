@@ -145,6 +145,13 @@ shela's markdownlint implementation is Python-native — findings conform to the
 |---|---|
 | A job the codebase performs has no documentation coverage | Coverage.MissingJobCoverage |
 
+### Cross-File Analysis
+
+| Problem | Rule |
+|---|---|
+| A concept or tool is referenced in a doc before it is defined anywhere in the doc set — reader has no path to the definition | DependencyReveal (SP10, CrossFileContext) |
+| Different docs re-explain the same concept at the same level of abstraction — redundant, inconsistent, hard to maintain | ConceptReintroductionPenalty (SP11 — Jaccard ≥ 0.60 on section lemma sets across files) |
+
 ---
 
 ## laxa — JTBD Extractor and Coverage Auditor
@@ -179,11 +186,34 @@ shela's markdownlint implementation is Python-native — findings conform to the
 | Doc quality is invisible at the org level — no cross-repo view | Polls all watched repos, stores scores, serves cross-repo dashboard |
 | No trend data — quality improvements erode silently over time | Appends every scan result; trend charts per dimension per repo |
 | No mechanism to prevent quality regressions from shipping | PR quality gates: fail or warn when post-merge score would drop below threshold |
-| Quality is subjective with no shared baseline across teams | Five-dimension numeric score (Clarity, Structure, Completeness, Style, Readability) gives a common language |
+| Quality is subjective with no shared baseline across teams | Five-dimension density-rate score (Clarity, Structure, Style, Form, Coverage — findings per 1,000 words) gives a common language |
 | Linter results are ephemeral — run locally and forgotten | Server persists every scan; history is queryable |
 | No embeddable signal that a repo's docs are in good shape | Badge endpoint (GET /badge/:repo) — embeddable SVG, always current |
 | No alert when a team's doc score regresses | Slack alerts on significant score drops between scans |
 | Doc health not visible in the tools engineers already use (Backstage, GitHub) | Backstage plugin (doc health card alongside build status and SLOs); GitHub PR check integration |
 | No REST API for custom integrations or reporting pipelines | score_file / ScoreResult boundary; server exposes scores over HTTP |
 | Server and linter versioned independently but tightly coupled | Import boundary constraint: server only imports score_file and ScoreResult — no internal linter coupling |
-| Platform and DX leads lack a single place to prioritize doc improvement effort | Dashboard shows worst-performing docs and dimensions across all repos |
+| Platform and DX leads lack a single place to prioritize doc improvement effort | Dashboard shows worst-performing docs and dimensions across all repos; per-topic Diataxis breakdown shows which topic types are degrading |
+| No cross-org benchmark to assess whether doc quality is above or below peers | Opt-in anonymized benchmarking: dimension scores (not content) pooled across consenting repos; benchmark view shows percentile position by repo tag |
+| Teams know scores are bad but don't know which changes will have the highest ROI | Improvement playbooks: server records which structural changes correlated with score improvements for similar repos; surfaces ranked highest-ROI recommendations per repo |
+| Score changed but no one knows why | Per-file score delta correlated with git commit metadata — commit message, author, changed-line count; "Clarity improved 0.4/1kw after this commit" |
+| Deterministic findings accumulate; fixing them one by one is manual toil | Auto-fix PR generation: server opens a PR with `--fix` applied to top-N fixable findings (opt-in per repo) |
+
+---
+
+## AI Risk Reduction
+
+The problems above are not documentation aesthetics. Research on retrieval-augmented generation identifies the specific documentation failure modes that most reliably produce friction, dead ends, and wrong answers in AI-powered systems. Every rule and capability in chancery-labs maps to one or more of these failure modes.
+
+| AI failure mode | Root cause in docs | chancery-labs capability that addresses it |
+|---|---|---|
+| Hallucination from coverage gaps | Job with no documentation → AI answers from adjacent context | laxa job manifest + shela Coverage.MissingJobCoverage |
+| Retrieval fragmentation | Section exceeds RAG chunk window; split mid-argument | Structure.ChunkBoundary |
+| Wrong-topic retrieval | Section body drifts from heading → retrieved against wrong query | Unity.HeadingTopicCoherence, Unity.TopicSectionDrift |
+| Embedding collision / wrong ranking | Same concept named differently across docs | Cohesion.TerminologyDrift |
+| Incomplete action extraction | Passive voice without actor → no subject for instruction execution | Rhetoric.PassiveVoiceActorGap |
+| Confident wrong answers from stale content | Code changed; doc not updated | Coverage.DocCodeDrift (drift detection) |
+| Polluted FAQ retrieval signal | FAQ entries belonging in how-to create misleading procedural matches | FAQ semantic misrouting detection (laxa) |
+| Context window overflow | Document exceeds LLM token budget | Clarity.TokenBudget |
+| Incoherent retrieved chunks | Cohesion breaks → chunk is internally disconnected | Cohesion.Break, Coherence.IslandSentence |
+| Cross-doc contradiction | Same concept explained differently in two docs | ConceptReintroductionPenalty (SP11) |
