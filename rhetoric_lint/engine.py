@@ -579,6 +579,7 @@ class RhetoricEngine:
             "sentence_rhythm",
             "unsupported_claim",
             "jtbd_coverage",
+            "metadata_enforcement",
         ):
             mod = import_module(f"rhetoric_lint.rules.{name}")
             if hasattr(mod, "check"):

@@ -20,6 +20,14 @@ REQUIRE_H1 = True
 # Heading.SiblingParallelism: minimum H2 siblings to apply the check
 HEADING_PARALLELISM_MIN_GROUP: int = 3
 
+# SP23 — Frontmatter metadata enforcement (opt-in)
+FRONTMATTER_ENFORCEMENT_ENABLED: bool = False
+METADATA_STALE_DAYS: int = 183
+VALID_AUDIENCE_VALUES: frozenset = frozenset({
+    "developer", "admin", "data_analyst", "architect",
+    "devops", "sre", "manager", "end_user",
+})
+
 # Simple pronoun list (for cohesion checks)
 PRONOUNS = [
     "he",
@@ -363,6 +371,12 @@ RULE_DESCRIPTIONS = {
     "Structure.ListLeadColon":          "List block is not preceded by a sentence ending in a colon.",
     "Structure.ImageInTable":           "Image is embedded inside a table cell.",
     "Structure.SingleHeaderRow":        "Table has more than one GFM delimiter row; expected exactly one header separator.",
+    # SP23 — Frontmatter metadata enforcement
+    "Metadata.MissingOwner":            "Frontmatter is missing an 'owner' field.",
+    "Metadata.MissingAudience":         "Frontmatter is missing an 'audience' field.",
+    "Metadata.InvalidAudience":         "Frontmatter 'audience' value is not in the approved list.",
+    "Metadata.Stale":                   "Document date field exceeds the freshness threshold.",
+    "Metadata.MissingDate":             "Frontmatter has an 'owner' field but no 'date' field.",
     # SP22 — Reference genre completeness
     "Reference.MissingAuth":            "API reference document has no authentication section and no auth-related vocabulary.",
     "Reference.MissingRateLimit":       "API reference document has no rate-limiting section and no rate-limit vocabulary.",
@@ -492,6 +506,12 @@ RULE_SEVERITY_LEVELS = {
     "Structure.ListLeadColon": "suggestion",
     "Structure.ImageInTable": "warning",
     "Structure.SingleHeaderRow": "warning",
+    # SP23 — Frontmatter metadata enforcement
+    "Metadata.MissingOwner": "warning",
+    "Metadata.MissingAudience": "suggestion",
+    "Metadata.InvalidAudience": "suggestion",
+    "Metadata.Stale": "warning",
+    "Metadata.MissingDate": "suggestion",
     # SP22 — Reference genre completeness
     "Reference.MissingAuth": "warning",
     "Reference.MissingRateLimit": "warning",

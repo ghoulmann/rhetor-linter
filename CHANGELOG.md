@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- SP23: Frontmatter metadata enforcement (opt-in, `FRONTMATTER_ENFORCEMENT_ENABLED = False`) — `Metadata.MissingOwner`, `Metadata.MissingAudience`, `Metadata.InvalidAudience`, `Metadata.Stale`, `Metadata.MissingDate`; `METADATA_STALE_DAYS = 183`; `VALID_AUDIENCE_VALUES` configurable
 - SP21: `Heading.SiblingParallelism` — flags H2 headings that break grammatical pattern of siblings (verb-led vs. noun-led) when minority < 33% of group; requires spaCy; `const.HEADING_PARALLELISM_MIN_GROUP = 3`
 - SP22: 5 Reference genre completeness checks — `Reference.MissingAuth`, `Reference.MissingRateLimit`, `Reference.MissingVersioning`, `Reference.MissingRequestExample`, `Reference.MissingParameterTable`; two-tier detection (heading variant OR marker vocabulary); gated to `reference` genre or API-indicator headings; 150-word floor
 - SP20: 6 new markdownlint extension checks — `markdownlint.MD045` (image alt text), `markdownlint.MD046` (fenced code style consistency), `Structure.StackedHeadings`, `Structure.ListLeadColon`, `Structure.ImageInTable`, `Structure.SingleHeaderRow`
