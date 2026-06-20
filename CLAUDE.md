@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Issue History
+
+Architectural decisions, regression analysis, and research findings are logged in `history/`. See `history/index.md` for the full list.
+
+When a significant design question is resolved — especially one involving tradeoffs, agent research, or future impact — save the resolution as `history/YYYY-MM-DD-<issue-slug>.md` and add a row to `history/index.md`. One file per issue. Do not log routine bug fixes or test additions; log decisions that a future session would otherwise have to re-derive.
+
 ## Commands
 
 ```bash
@@ -169,3 +175,20 @@ Status as of 2026-06-07:
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.
+
+## Architectural lineage
+
+Part of a CAMEO-lineage ecosystem: CAMEO (Conflict and Mediation Event Observations) is the structural ancestor. `dateline/` applies CAMEO to geopolitics; `wqo/` applies the same multi-dimensional classification approach to writing quality; this linter operationalizes the WQO concern classifications into detection rules. `jtbd-tool/` independently uses CAMEO verbs for job classification and feeds coverage gaps into this tool via SP12.
+
+## Ecosystem
+
+| Direction | Repo | Relationship |
+|---|---|---|
+| Upstream | `jtbd-tool/` | Produces `jtbd-manifest.json`; SP12 fires `Coverage.MissingJobCoverage` against it |
+| Schema | `wqo/` | WQO concern IDs map to rule coverage via `wqo_links`; gap list in memory |
+| Display | `quartz-site/` | Navigable form of WQO; practitioners browse concerns that rules enforce |
+| Lineage | `dateline/` | CAMEO geopolitics instantiation; structural ancestor |
+
+Chancery Labs product name: **shela**. Rename deferred to Gate 2.
+
+Full ecosystem context: `~/Documents/github/wqo/.notes/ecosystem.md`

@@ -228,3 +228,9 @@ make clean         # remove __pycache__, .pytest_cache, .coverage
 ```
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+## Part of the WQO ecosystem
+
+rhetor-linter operationalizes the [Writing Quality Ontology](https://ghoulmann.github.io/word) — a systematic, CAMEO-analogous domain ontology for literacy and writing quality. Each linter rule maps to one or more WQO concern IDs; the ontology defines which concerns exist and how they relate, while this tool detects them in documents.
+
+The ontology is browsable at [ghoulmann.github.io/word](https://ghoulmann.github.io/word). Schema source: [wqo](https://github.com/ghoulmann/wqo). Job coverage gaps that inform rule priorities come from [jtbd-tool](https://github.com/ghoulmann/jtbd-tool) via the `--jtbd-manifest` flag (SP12).

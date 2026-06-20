@@ -22,6 +22,13 @@ def _msgs(issues):
     return [i["message"] for i in issues]
 
 
+def _runner_cfg(**rule_cfgs) -> MarkdownlintRunner:
+    """Runner with specific rules explicitly enabled (overrides disabled-by-default)."""
+    r = _runner()
+    r._cli2_config = rule_cfgs
+    return r
+
+
 # ---------------------------------------------------------------------------
 # MD001 — heading levels increment by one
 # ---------------------------------------------------------------------------
@@ -655,25 +662,50 @@ class TestMD045:
 
 
 # ---------------------------------------------------------------------------
-# SP20 — MD046: Fenced code block style consistency
+# MD048: Fence marker style consistency (formerly registered as MD046)
 # ---------------------------------------------------------------------------
 
-class TestMD046:
+class TestMD048:
     def test_flags_mixed_consistent(self):
         r = _runner()
         text = "```python\ncode\n```\n\n~~~bash\ncode\n~~~\n"
         issues = r.check(_ctx(text))
-        assert any("MD046" in c for c in _checks(issues))
+        assert any("MD048" in c for c in _checks(issues))
 
     def test_no_flag_all_backtick(self):
         r = _runner()
         text = "```python\ncode\n```\n\n```bash\ncode\n```\n"
         issues = r.check(_ctx(text))
-        assert not any("MD046" in c for c in _checks(issues))
+        assert not any("MD048" in c for c in _checks(issues))
 
     def test_no_flag_all_tilde(self):
         r = _runner()
         text = "~~~python\ncode\n~~~\n\n~~~bash\ncode\n~~~\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD048" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# MD046: Code block style — fenced vs indented
+# ---------------------------------------------------------------------------
+
+class TestMD046:
+    def test_flags_indented_code_block(self):
+        r = _runner_cfg(MD046={"style": "fenced"})
+        text = "Some text.\n\n    indented code\n    more code\n\nEnd.\n"
+        issues = r.check(_ctx(text))
+        assert any("MD046" in c for c in _checks(issues))
+
+    def test_no_flag_fenced_block(self):
+        r = _runner_cfg(MD046={"style": "fenced"})
+        text = "Some text.\n\n```python\ncode\n```\n\nEnd.\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD046" in c for c in _checks(issues))
+
+    def test_no_flag_list_indentation(self):
+        r = _runner_cfg(MD046={"style": "fenced"})
+        # 4-space indent inside a list item (not a code block)
+        text = "- Item one\n    - Nested item\n- Item two\n"
         issues = r.check(_ctx(text))
         assert not any("MD046" in c for c in _checks(issues))
 
@@ -764,3 +796,580 @@ class TestStructureSingleHeaderRow:
         text = "| A | B |\n|---|---|\n| x | y |\n"
         issues = r.check(_ctx(text))
         assert not any("Structure.SingleHeaderRow" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group A: Heading whitespace
+# ---------------------------------------------------------------------------
+
+class TestMD018:
+    def test_flags_no_space(self):
+        r = _runner()
+        issues = r.check(_ctx("#Heading\n"))
+        assert any("MD018" in c for c in _checks(issues))
+
+    def test_fix_inserts_space(self):
+        r = _runner()
+        issues = r.check(_ctx("#Heading\n"))
+        md = [i for i in issues if "MD018" in i["check"]]
+        assert md and md[0]["fix"] == "# Heading"
+
+    def test_no_flag_normal(self):
+        r = _runner()
+        assert not any("MD018" in c for c in _checks(r.check(_ctx("# Heading\n"))))
+
+    def test_no_flag_in_code_fence(self):
+        r = _runner()
+        assert not any("MD018" in c for c in _checks(r.check(_ctx("```\n#Heading\n```\n"))))
+
+
+class TestMD019:
+    def test_flags_double_space(self):
+        r = _runner()
+        issues = r.check(_ctx("#  Heading\n"))
+        assert any("MD019" in c for c in _checks(issues))
+
+    def test_fix_normalises(self):
+        r = _runner()
+        issues = r.check(_ctx("#  Heading\n"))
+        md = [i for i in issues if "MD019" in i["check"]]
+        assert md and md[0]["fix"] == "# Heading"
+
+    def test_no_flag_single_space(self):
+        r = _runner()
+        assert not any("MD019" in c for c in _checks(r.check(_ctx("# Heading\n"))))
+
+
+class TestMD023:
+    def test_flags_indented_heading(self):
+        r = _runner_cfg(MD023={})
+        issues = r.check(_ctx("  # Heading\n"))
+        assert any("MD023" in c for c in _checks(issues))
+
+    def test_fix_strips_indent(self):
+        r = _runner_cfg(MD023={})
+        issues = r.check(_ctx("  # Heading\n"))
+        md = [i for i in issues if "MD023" in i["check"]]
+        assert md and md[0]["fix"] == "# Heading"
+
+    def test_no_flag_normal(self):
+        r = _runner_cfg(MD023={})
+        assert not any("MD023" in c for c in _checks(r.check(_ctx("# Heading\n"))))
+
+
+class TestMD026:
+    def test_flags_trailing_period(self):
+        r = _runner_cfg(MD026={"punctuation": ".,;:!?"})
+        issues = r.check(_ctx("# Heading.\n"))
+        assert any("MD026" in c for c in _checks(issues))
+
+    def test_flags_trailing_colon(self):
+        r = _runner_cfg(MD026={"punctuation": ".,;:!?"})
+        issues = r.check(_ctx("## Section:\n"))
+        assert any("MD026" in c for c in _checks(issues))
+
+    def test_fix_removes_punct(self):
+        r = _runner_cfg(MD026={"punctuation": ".,;:!?"})
+        issues = r.check(_ctx("# Title.\n"))
+        md = [i for i in issues if "MD026" in i["check"]]
+        assert md and not md[0]["fix"].endswith(".")
+
+    def test_no_flag_clean(self):
+        r = _runner_cfg(MD026={"punctuation": ".,;:!?"})
+        assert not any("MD026" in c for c in _checks(r.check(_ctx("# Title\n"))))
+
+    def test_flags_exclamation(self):
+        # ! is in the punctuation set — verify it fires
+        r = _runner_cfg(MD026={"punctuation": ".,;:!?"})
+        issues = r.check(_ctx("# Title!\n"))
+        assert any("MD026" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group B: Blockquote
+# ---------------------------------------------------------------------------
+
+class TestMD027:
+    def test_flags_double_space(self):
+        r = _runner_cfg(MD027={})
+        issues = r.check(_ctx(">  text here\n"))
+        assert any("MD027" in c for c in _checks(issues))
+
+    def test_fix_normalises(self):
+        r = _runner_cfg(MD027={})
+        issues = r.check(_ctx(">  text here\n"))
+        md = [i for i in issues if "MD027" in i["check"]]
+        assert md and md[0]["fix"] == "> text here"
+
+    def test_no_flag_single_space(self):
+        r = _runner_cfg(MD027={})
+        assert not any("MD027" in c for c in _checks(r.check(_ctx("> text here\n"))))
+
+
+class TestMD028:
+    def test_flags_blank_line_in_blockquote(self):
+        r = _runner_cfg(MD028={})
+        text = "> Line one\n\n> Line two\n"
+        issues = r.check(_ctx(text))
+        assert any("MD028" in c for c in _checks(issues))
+
+    def test_no_flag_no_blank(self):
+        r = _runner_cfg(MD028={})
+        assert not any("MD028" in c for c in _checks(r.check(_ctx("> Line one\n> Line two\n"))))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group C: List rules
+# ---------------------------------------------------------------------------
+
+class TestMD004:
+    def test_flags_mixed_markers(self):
+        r = _runner_cfg(MD004={"style": "consistent"})
+        issues = r.check(_ctx("- item one\n* item two\n"))
+        assert any("MD004" in c for c in _checks(issues))
+
+    def test_fix_normalises_to_first(self):
+        r = _runner_cfg(MD004={"style": "consistent"})
+        issues = r.check(_ctx("- item one\n* item two\n"))
+        md = [i for i in issues if "MD004" in i["check"]]
+        assert md and md[0]["fix"].startswith("- ")
+
+    def test_no_flag_consistent(self):
+        r = _runner_cfg(MD004={"style": "consistent"})
+        assert not any("MD004" in c for c in _checks(r.check(_ctx("- one\n- two\n- three\n"))))
+
+
+class TestMD007:
+    def test_flags_wrong_indent(self):
+        r = _runner_cfg(MD007={"indent": 2})
+        # 3-space indent (not multiple of 2)
+        issues = r.check(_ctx("- item\n   - nested\n"))
+        assert any("MD007" in c for c in _checks(issues))
+
+    def test_no_flag_correct_indent(self):
+        r = _runner_cfg(MD007={"indent": 2})
+        assert not any("MD007" in c for c in _checks(r.check(_ctx("- item\n  - nested\n"))))
+
+
+class TestMD029:
+    def test_flags_non_sequential(self):
+        r = _runner()
+        issues = r.check(_ctx("1. First\n3. Third\n"))
+        assert any("MD029" in c for c in _checks(issues))
+
+    def test_no_flag_sequential(self):
+        r = _runner()
+        assert not any("MD029" in c for c in _checks(r.check(_ctx("1. First\n2. Second\n3. Third\n"))))
+
+    def test_no_flag_all_ones(self):
+        r = _runner()
+        assert not any("MD029" in c for c in _checks(r.check(_ctx("1. First\n1. Second\n1. Third\n"))))
+
+
+class TestMD030:
+    def test_flags_two_spaces(self):
+        r = _runner_cfg(MD030={"ul_single": 1, "ul_multi": 1, "ol_single": 1, "ol_multi": 1})
+        issues = r.check(_ctx("-  item one\n"))
+        assert any("MD030" in c for c in _checks(issues))
+
+    def test_no_flag_one_space(self):
+        r = _runner_cfg(MD030={"ul_single": 1, "ul_multi": 1, "ol_single": 1, "ol_multi": 1})
+        assert not any("MD030" in c for c in _checks(r.check(_ctx("- item one\n"))))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group D: Code blocks
+# ---------------------------------------------------------------------------
+
+class TestMD014:
+    def test_flags_dollar_commands(self):
+        r = _runner_cfg(MD014={})
+        text = "```bash\n$ npm install\n$ npm start\n```\n"
+        issues = r.check(_ctx(text))
+        assert any("MD014" in c for c in _checks(issues))
+
+    def test_fix_removes_dollar(self):
+        r = _runner_cfg(MD014={})
+        text = "```bash\n$ npm install\n$ npm start\n```\n"
+        issues = r.check(_ctx(text))
+        md = [i for i in issues if "MD014" in i["check"]]
+        assert md and not md[0]["fix"].startswith("$")
+
+    def test_no_flag_with_output(self):
+        r = _runner_cfg(MD014={})
+        # Block has output lines (not all start with $)
+        text = "```bash\n$ echo hello\nhello\n```\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD014" in c for c in _checks(issues))
+
+    def test_no_flag_no_dollar(self):
+        r = _runner_cfg(MD014={})
+        text = "```bash\nnpm install\nnpm start\n```\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD014" in c for c in _checks(issues))
+
+
+class TestMD060:
+    def test_flags_trailing_space_in_fence(self):
+        r = _runner_cfg(MD060={})
+        text = "```\nsome code   \n```\n"
+        issues = r.check(_ctx(text))
+        assert any("MD060" in c for c in _checks(issues))
+
+    def test_fix_strips_trailing(self):
+        r = _runner_cfg(MD060={})
+        text = "```\nsome code   \n```\n"
+        issues = r.check(_ctx(text))
+        md = [i for i in issues if "MD060" in i["check"]]
+        assert md and md[0]["fix"] == "some code"
+
+    def test_no_flag_clean(self):
+        r = _runner_cfg(MD060={})
+        assert not any("MD060" in c for c in _checks(r.check(_ctx("```\nsome code\n```\n"))))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group E: Inline / link rules
+# ---------------------------------------------------------------------------
+
+class TestMD011:
+    def test_flags_reversed_link(self):
+        r = _runner()
+        issues = r.check(_ctx("See (details)[https://example.com].\n"))
+        assert any("MD011" in c for c in _checks(issues))
+
+    def test_fix_reverses(self):
+        r = _runner()
+        issues = r.check(_ctx("(details)[https://example.com].\n"))
+        md = [i for i in issues if "MD011" in i["check"]]
+        assert md and "[details](https://example.com)" in md[0]["fix"]
+
+    def test_no_flag_correct_syntax(self):
+        r = _runner()
+        assert not any("MD011" in c for c in _checks(r.check(_ctx("[details](https://example.com)\n"))))
+
+
+class TestMD034:
+    def test_flags_bare_url(self):
+        r = _runner_cfg(MD034={})
+        issues = r.check(_ctx("See https://example.com for more.\n"))
+        assert any("MD034" in c for c in _checks(issues))
+
+    def test_no_flag_angle_bracket(self):
+        r = _runner_cfg(MD034={})
+        assert not any("MD034" in c for c in _checks(r.check(_ctx("See <https://example.com>.\n"))))
+
+    def test_no_flag_link_syntax(self):
+        r = _runner_cfg(MD034={})
+        assert not any("MD034" in c for c in _checks(r.check(_ctx("[link](https://example.com)\n"))))
+
+    def test_no_flag_in_code_span(self):
+        r = _runner_cfg(MD034={})
+        assert not any("MD034" in c for c in _checks(r.check(_ctx("`https://example.com`\n"))))
+
+    def test_no_flag_in_code_fence(self):
+        r = _runner_cfg(MD034={})
+        assert not any("MD034" in c for c in _checks(r.check(_ctx("```\nhttps://example.com\n```\n"))))
+
+
+class TestMD037:
+    def test_flags_spaces_inside_emphasis(self):
+        r = _runner()
+        issues = r.check(_ctx("This is * emphasized * text.\n"))
+        assert any("MD037" in c for c in _checks(issues))
+
+    def test_no_flag_normal_emphasis(self):
+        r = _runner()
+        assert not any("MD037" in c for c in _checks(r.check(_ctx("This is *emphasized* text.\n"))))
+
+
+class TestMD038:
+    def test_flags_spaces_in_code_span(self):
+        r = _runner_cfg(MD038={})
+        issues = r.check(_ctx("Use ` code ` here.\n"))
+        assert any("MD038" in c for c in _checks(issues))
+
+    def test_no_flag_normal_code(self):
+        r = _runner_cfg(MD038={})
+        assert not any("MD038" in c for c in _checks(r.check(_ctx("Use `code` here.\n"))))
+
+
+class TestMD039:
+    def test_flags_spaces_in_link(self):
+        r = _runner()
+        issues = r.check(_ctx("[ text ](https://example.com)\n"))
+        assert any("MD039" in c for c in _checks(issues))
+
+    def test_no_flag_normal(self):
+        r = _runner()
+        assert not any("MD039" in c for c in _checks(r.check(_ctx("[text](https://example.com)\n"))))
+
+
+class TestMD042:
+    def test_flags_empty_destination(self):
+        r = _runner()
+        issues = r.check(_ctx("[text]()\n"))
+        assert any("MD042" in c for c in _checks(issues))
+
+    def test_no_flag_normal(self):
+        r = _runner()
+        assert not any("MD042" in c for c in _checks(r.check(_ctx("[text](https://example.com)\n"))))
+
+
+class TestMD049:
+    def test_no_flag_consistent_asterisk(self):
+        r = _runner_cfg(MD049={"style": "consistent"})
+        assert not any("MD049" in c for c in _checks(r.check(_ctx("*one* and *two*\n"))))
+
+    def test_no_flag_consistent_underscore(self):
+        r = _runner_cfg(MD049={"style": "consistent"})
+        assert not any("MD049" in c for c in _checks(r.check(_ctx("_one_ and _two_\n"))))
+
+    def test_flags_mixed(self):
+        r = _runner_cfg(MD049={"style": "consistent"})
+        issues = r.check(_ctx("*one* and _two_ and _three_\n"))
+        assert any("MD049" in c for c in _checks(issues))
+
+
+class TestMD050:
+    def test_no_flag_consistent_asterisk(self):
+        r = _runner_cfg(MD050={"style": "consistent"})
+        assert not any("MD050" in c for c in _checks(r.check(_ctx("**one** and **two**\n"))))
+
+    def test_flags_mixed(self):
+        r = _runner_cfg(MD050={"style": "consistent"})
+        issues = r.check(_ctx("**one** and __two__ and __three__\n"))
+        assert any("MD050" in c for c in _checks(issues))
+
+
+class TestMD051:
+    def test_flags_unknown_fragment(self):
+        r = _runner_cfg(MD051={})
+        text = "# Real Heading\n\nSee [link](#nonexistent).\n"
+        issues = r.check(_ctx(text))
+        assert any("MD051" in c for c in _checks(issues))
+
+    def test_no_flag_known_fragment(self):
+        r = _runner_cfg(MD051={})
+        text = "# Real Heading\n\nSee [link](#real-heading).\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD051" in c for c in _checks(issues))
+
+    def test_no_flag_external_url(self):
+        r = _runner_cfg(MD051={})
+        text = "See [link](https://example.com#section).\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD051" in c for c in _checks(issues))
+
+
+class TestMD053:
+    def test_flags_unused_definition(self):
+        r = _runner_cfg(MD053={})
+        text = "Some text.\n\n[unused]: https://example.com\n"
+        issues = r.check(_ctx(text))
+        assert any("MD053" in c for c in _checks(issues))
+
+    def test_no_flag_used_definition(self):
+        r = _runner_cfg(MD053={})
+        text = "See [link][used].\n\n[used]: https://example.com\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD053" in c for c in _checks(issues))
+
+    def test_fix_is_empty_string(self):
+        r = _runner_cfg(MD053={})
+        text = "Text.\n\n[unused]: https://example.com\n"
+        issues = r.check(_ctx(text))
+        md = [i for i in issues if "MD053" in i["check"]]
+        assert md and md[0]["fix"] == ""
+
+
+class TestMD059:
+    def test_flags_here(self):
+        r = _runner()
+        issues = r.check(_ctx("Click [here](https://example.com).\n"))
+        assert any("MD059" in c for c in _checks(issues))
+
+    def test_flags_click_here(self):
+        r = _runner()
+        issues = r.check(_ctx("[click here](https://example.com)\n"))
+        assert any("MD059" in c for c in _checks(issues))
+
+    def test_no_flag_descriptive(self):
+        r = _runner()
+        assert not any("MD059" in c for c in _checks(r.check(_ctx("[the documentation](https://example.com)\n"))))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group F: Table rules
+# ---------------------------------------------------------------------------
+
+class TestMD055:
+    def test_flags_inconsistent_pipes(self):
+        r = _runner()
+        # Header: leading+trailing; data row: leading only (no trailing pipe)
+        text = "| A | B |\n|---|---|\n| x | y\n"
+        issues = r.check(_ctx(text))
+        assert any("MD055" in c for c in _checks(issues))
+
+    def test_no_flag_consistent(self):
+        r = _runner()
+        text = "| A | B |\n|---|---|\n| x | y |\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD055" in c for c in _checks(issues))
+
+
+class TestMD056:
+    def test_flags_mismatched_columns(self):
+        r = _runner()
+        text = "| A | B |\n|---|---|\n| x | y | z |\n"
+        issues = r.check(_ctx(text))
+        assert any("MD056" in c for c in _checks(issues))
+
+    def test_no_flag_matching_columns(self):
+        r = _runner()
+        text = "| A | B |\n|---|---|\n| x | y |\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD056" in c for c in _checks(issues))
+
+
+class TestMD058:
+    def test_flags_no_blank_before(self):
+        r = _runner()
+        text = "Text\n| A | B |\n|---|---|\n| x | y |\n"
+        issues = r.check(_ctx(text))
+        assert any("MD058" in c for c in _checks(issues))
+
+    def test_flags_no_blank_after(self):
+        r = _runner()
+        text = "| A | B |\n|---|---|\n| x | y |\nMore text\n"
+        issues = r.check(_ctx(text))
+        assert any("MD058" in c for c in _checks(issues))
+
+    def test_no_flag_surrounded_by_blanks(self):
+        r = _runner()
+        text = "Text\n\n| A | B |\n|---|---|\n| x | y |\n\nMore text\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD058" in c for c in _checks(issues))
+
+
+# ---------------------------------------------------------------------------
+# SP_MDLINT_FULL — Group G: Document-level rules
+# ---------------------------------------------------------------------------
+
+class TestMD024:
+    def test_flags_duplicate_heading(self):
+        r = _runner_cfg(MD024={})
+        issues = r.check(_ctx("# Title\n\n## Section\n\nContent.\n\n## Section\n\nMore.\n"))
+        assert any("MD024" in c for c in _checks(issues))
+
+    def test_no_flag_unique_headings(self):
+        r = _runner_cfg(MD024={})
+        issues = r.check(_ctx("# Title\n\n## Introduction\n\n## Usage\n\n## Reference\n"))
+        assert not any("MD024" in c for c in _checks(issues))
+
+
+class TestMD033:
+    def test_flags_inline_html(self):
+        r = _runner_cfg(MD033={"allowed_elements": []})
+        issues = r.check(_ctx("Some <b>bold</b> text.\n"))
+        assert any("MD033" in c for c in _checks(issues))
+
+    def test_no_flag_html_comment(self):
+        r = _runner_cfg(MD033={"allowed_elements": []})
+        # HTML comments should not be flagged
+        issues = r.check(_ctx("<!-- This is a comment -->\n"))
+        assert not any("MD033" in c for c in _checks(issues))
+
+    def test_no_flag_allowed_element(self):
+        import tempfile, json, os
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"MD033": {"allowed_elements": ["b", "i"]}}, f)
+            cfg_path = f.name
+        try:
+            r = _runner(config_path=cfg_path)
+            issues = r.check(_ctx("Some <b>bold</b> text.\n"))
+            assert not any("MD033" in c for c in _checks(issues))
+        finally:
+            os.unlink(cfg_path)
+
+
+class TestMD035:
+    def test_flags_inconsistent_hr(self):
+        r = _runner()
+        text = "---\n\n***\n"
+        issues = r.check(_ctx(text))
+        assert any("MD035" in c for c in _checks(issues))
+
+    def test_no_flag_consistent(self):
+        r = _runner()
+        text = "---\n\ntext\n\n---\n"
+        issues = r.check(_ctx(text))
+        assert not any("MD035" in c for c in _checks(issues))
+
+
+class TestMD036:
+    def test_flags_bold_as_heading(self):
+        r = _runner_cfg(MD036={})
+        issues = r.check(_ctx("**This is not a heading**\n"))
+        assert any("MD036" in c for c in _checks(issues))
+
+    def test_no_flag_inline_bold(self):
+        r = _runner_cfg(MD036={})
+        issues = r.check(_ctx("This has **bold** text.\n"))
+        assert not any("MD036" in c for c in _checks(issues))
+
+
+class TestMD043:
+    def test_no_fire_when_no_config(self):
+        r = _runner()
+        issues = r.check(_ctx("# Any Heading\n\n## Whatever\n"))
+        assert not any("MD043" in c for c in _checks(issues))
+
+    def test_flags_wrong_structure(self):
+        import tempfile, json, os
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"MD043": {"headings": ["Introduction", "Usage"]}}, f)
+            cfg_path = f.name
+        try:
+            r = _runner(config_path=cfg_path)
+            issues = r.check(_ctx("# Introduction\n\n## Other\n"))
+            assert any("MD043" in c for c in _checks(issues))
+        finally:
+            os.unlink(cfg_path)
+
+
+class TestMD044:
+    def test_no_fire_when_no_config(self):
+        r = _runner()
+        issues = r.check(_ctx("Install kubernetes with kubectl.\n"))
+        assert not any("MD044" in c for c in _checks(issues))
+
+    def test_flags_wrong_case(self):
+        import tempfile, json, os
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"MD044": {"names": ["Kubernetes"]}}, f)
+            cfg_path = f.name
+        try:
+            r = _runner(config_path=cfg_path)
+            issues = r.check(_ctx("Install kubernetes.\n"))
+            assert any("MD044" in c for c in _checks(issues))
+        finally:
+            os.unlink(cfg_path)
+
+
+class TestMD047:
+    def test_flags_missing_newline(self):
+        r = _runner()
+        # File text without trailing newline
+        issues = r.check(_ctx("No newline at end"))
+        assert any("MD047" in c for c in _checks(issues))
+
+    def test_fix_adds_newline(self):
+        r = _runner()
+        issues = r.check(_ctx("No newline at end"))
+        md = [i for i in issues if "MD047" in i["check"]]
+        assert md and md[0]["fix"].endswith("\n")
+
+    def test_no_flag_with_newline(self):
+        r = _runner()
+        assert not any("MD047" in c for c in _checks(r.check(_ctx("Has newline\n"))))
