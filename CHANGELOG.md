@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- SP_MDLINT_FULL: markdownlint native rule coverage expanded from 12 to ~50 rules (`markdownlint.MD004`–`markdownlint.MD060`) in `rhetoric_lint/runners/markdownlint.py`; adds 5 shared helpers (`_blockquote_regions`, `_link_ref_definitions`, `_heading_to_anchor`, `_inline_code_spans`, `_in_code_span`); all fixable rules carry `fix` payloads
 - `Clarity.MergeConflictMarkers` Vale YAML rule (`scope: raw`, `level: error`) — flags `<<<<<<<`, `=======`, `>>>>>>>` conflict markers anywhere in document text; Vale runner `scope: raw` now correctly scans full document line-by-line (was incorrectly limited to code-fence nodes)
 - SP23: Frontmatter metadata enforcement (opt-in, `FRONTMATTER_ENFORCEMENT_ENABLED = False`) — `Metadata.MissingOwner`, `Metadata.MissingAudience`, `Metadata.InvalidAudience`, `Metadata.Stale`, `Metadata.MissingDate`; `METADATA_STALE_DAYS = 183`; `VALID_AUDIENCE_VALUES` configurable
 - SP21: `Heading.SiblingParallelism` — flags H2 headings that break grammatical pattern of siblings (verb-led vs. noun-led) when minority < 33% of group; requires spaCy; `const.HEADING_PARALLELISM_MIN_GROUP = 3`
@@ -57,6 +58,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `classify_genre()` now accepts `path` parameter; filename-based detection takes highest priority (README→`readme`, CHANGELOG/HISTORY→`changelog`, CONTRIBUTING/SECURITY→`howto`)
 - Genre accuracy thresholds now only enforced when `GENRE_GATE_ENABLED=True`; test always runs and reports diagnostics
 - Corpus labels updated from `technical` to Diataxis genres across 45 documents
+
+### Removed
+- MyST/Sphinx precision-corpus fixtures dropped as least concern for validated corpus coverage: `black-usage.md`, `click-commands.md`, `court-scraper-site-discovery.md`, `myst-typography.md` (+ `.label` files); `engine.py` MyST preprocessing is unaffected — see `history/2026-07-02-myst-corpus-scope-decision.md`
+- `fastapi-first-steps.md` corpus fixture restored after being incidentally deleted alongside the MyST fixtures; it is MkDocs Material, not MyST, and was not part of the scope decision
 
 ### Fixed
 - `score.py`: `{**dimension_map, dimension_default}` syntax error (was never imported by tests; caught on first CLI run)

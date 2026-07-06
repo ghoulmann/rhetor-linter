@@ -39,7 +39,7 @@ SP1: Runner Infrastructure + Fix Framework + CrossFileContext stub  ✅
  │    └── SP_SPELL: Vale spelling rule type  ✅
  ├── SP3: markdownlint Native Rules  ✅
  │    ├── SP5: markdownlint-cli2 Python Custom Rule Extension  ✅
- │    └── SP_MDLINT_FULL: Complete markdownlint coverage (39 rules, MD046/MD048 fix)  [backlog]
+ │    └── SP_MDLINT_FULL: Complete markdownlint coverage (39 rules, MD046/MD048 fix)  ✅
  ├── SP8: NLP Rule Expansion (5 rules + TabVariantBalance)  ✅
  │    └── SP9: ProsePartner Gaps (also needs SP4)  ✅
  └── CrossFileContext (from SP1)
@@ -88,7 +88,7 @@ Independent (after SP1 CLI stable):
 | SP_CONFIG_VCS | Per-project config revision tracking under `~/.rhetoric-lint/projects/` (bare git, no DB) | SP_CONFIG | backlog |
 | SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) | backlog |
 | SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) | backlog |
-| SP_MDLINT_FULL | Complete markdownlint coverage: 39 missing rules (MD004–MD060) + MD046/MD048 correction; all fixable rules carry `fix` payloads; 4 new helpers (_blockquote_regions, _link_ref_definitions, _heading_to_anchor, _inline_code_spans); plan at `plan-integration-into-existing-wiggly-sunbeam.md` | SP3, SP5 | backlog |
+| SP_MDLINT_FULL | Complete markdownlint coverage: 39 missing rules (MD004–MD060) + MD046/MD048 correction; all fixable rules carry `fix` payloads; 4 new helpers (_blockquote_regions, _link_ref_definitions, _heading_to_anchor, _inline_code_spans) | SP3, SP5 | ✅ done |
 
 SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1). SP_CONFIG is the next open sprint. SP_MDLINT_FULL is independent of SP_CONFIG and can run in parallel.
 
