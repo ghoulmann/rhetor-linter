@@ -173,6 +173,7 @@ Status as of 2026-06-07:
 | SP_SPELL | ✅ done | `extends: spelling` via spylls; optional dep `[spell]`; `style-sets/Spelling/` with en_US + AWS/tech vocab |
 | SP12 | ✅ done | `Coverage.MissingJobCoverage`: fires warning per JTBD job with no doc coverage; `--jtbd-manifest` CLI flag; `JTBD_MANIFEST_PATH` + `JTBD_COVERAGE_JACCARD_MIN` in const |
 | SP_MDLINT_FULL | ✅ done | markdownlint full coverage: MD004–MD060 (~38 rules) + 5 shared helpers |
+| SP_CONFIG | open — no design doc yet | Next open sprint. Layered TOML config (autodiscovery, per-path scoping, per-rule severity overrides) + dimension taxonomy redesign (Form + Coverage replace Completeness; Readability absorbed into Clarity). Requirements fragments only, in the master plan's "CONFIG ARCHITECTURE" and dimension-redesign notes — no full spec written yet. |
 | SP10/SP11 | backlog | DependencyReveal + ConceptReintroductionPenalty (blocked on CrossFileContext) |
 
 **False positive standard**: every new rule requires a "must not fire" fixture. All new rules must produce zero findings against `tests/fixtures/corpus/technical/` before merging.

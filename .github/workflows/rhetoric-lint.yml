@@ -23,7 +23,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install rhetoric-lint
-        run: pip install rhetoric-lint
+        run: pip install .
 
       - name: Download spaCy model
         run: python -m spacy download en_core_web_sm

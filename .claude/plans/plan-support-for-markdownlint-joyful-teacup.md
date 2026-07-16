@@ -78,7 +78,7 @@ Independent (after SP1 CLI stable):
 | F4 | SCORE_MIN_WORDS = 150 + score.py skeleton | const.py, score.py | ✅ done |
 | F5 | DIMENSION_MAP (5 scoring dimensions → redesigned as 5 new dims; see SP_CONFIG) | const.py | ✅ done |
 | F9 | metadata.py: normalise_topic_type, normalise_owner, normalise_frontmatter | metadata.py | ✅ done |
-| SP_CONFIG | Layered config system: autodiscovery, per-path scoping, per-rule severity overrides, TOML primary, XDG defaults; includes dimension taxonomy redesign (Form + Coverage replace Completeness; Readability absorbed into Clarity) | SP12 | open — plan at `plan-the-implementation-moonlit-shell.md` |
+| SP_CONFIG | Layered config system: autodiscovery, per-path scoping, per-rule severity overrides, TOML primary, XDG defaults; includes dimension taxonomy redesign (Form + Coverage replace Completeness; Readability absorbed into Clarity) | SP12 | open — no design doc yet; requirements fragments only, see "CONFIG ARCHITECTURE" and dimension-redesign notes below in this file. (`plan-the-implementation-moonlit-shell.md` is the jtbd-tool scaffold plan, unrelated to SP_CONFIG — do not cite it for this work.) |
 | F3 | SP12 N×M spam — resolved-by-design: linter trusts manifest `coverage` verdict; no per-file Jaccard | — | ✅ resolved |
 | F6 | SP12 tokenizer parity — resolved-by-design: linter no longer tokenizes job text; F3 fix removes the need | — | ✅ resolved |
 | F8 | Document polling staleness as known limitation in server docs | server stub | open |
@@ -89,6 +89,7 @@ Independent (after SP1 CLI stable):
 | SP10 | DependencyReveal (multi-file) | CrossFileContext (SP1) | backlog |
 | SP11 | ConceptReintroductionPenalty (multi-file) | CrossFileContext (SP1) | backlog |
 | SP_MDLINT_FULL | Complete markdownlint coverage: 39 missing rules (MD004–MD060) + MD046/MD048 correction; all fixable rules carry `fix` payloads; 4 new helpers (_blockquote_regions, _link_ref_definitions, _heading_to_anchor, _inline_code_spans) | SP3, SP5 | ✅ done |
+| SP_API_MVP | Minimal stateless HTTP API (`POST /lint`, `POST /score`) wrapping `score_file()`/`lint_files()`; no auth/DB/scheduler; same-origin static paste/drag/upload playground; Render free-tier hosting; body-size cap + IP rate-limit tracked as fast-follow, not blocking. Design decision logged in `history/2026-07-16-api-interface-mvp-scope.md`. Not yet scoped into concrete files/tests. | score.py (F4) | backlog — design only |
 
 SP2 + SP3 + SP8 + SP_CI + SP_CONTRAST start together after SP1. SP9 waits for both SP8 and SP4. SP_SPELL waits for SP2. SP10/SP11 wait for CrossFileContext (delivered in SP1). SP_CONFIG is the next open sprint. SP_MDLINT_FULL is independent of SP_CONFIG and can run in parallel.
 
@@ -174,7 +175,10 @@ TODO
     dimensions: Clarity (owns readability), Structure, Style, Form (template/topic-type
     adherence: HowTo.*, ADR.*, Tutorial.*), Coverage (depth/needs: JTBD, error paths,
     Resilience.*). `const.DIMENSION_MAP` update is part of SP_CONFIG implementation.
-    Full dimension spec in `plan-the-implementation-moonlit-shell.md`.
+    No full dimension spec exists yet — this paragraph is the complete requirement
+    as of 2026-07-12; write the full spec when SP_CONFIG design begins
+    (`plan-the-implementation-moonlit-shell.md` does not cover this — it is the
+    unrelated jtbd-tool scaffold plan).
 
   ✅ [MAJOR F6] RESOLVED-BY-DESIGN (2026-06-08). F6 existed because the linter
     re-implemented jtbd-tool's _tokenize to re-run Jaccard independently. With F3 fixed
@@ -205,7 +209,10 @@ TODO
     - Server reporting: server config is a full takeover — developer local and XDG configs are not consulted for server-side scoring runs
     These two worlds must never merge at runtime. Server generates .rhetoric-lint.toml for its
     targets; it does not insert itself as a runtime merge layer for local runs.
-    Full spec in `plan-the-implementation-moonlit-shell.md` (SP_CONFIG).
+    No full spec exists yet — this paragraph is the complete requirement as of
+    2026-07-12; write the full spec when SP_CONFIG design begins
+    (`plan-the-implementation-moonlit-shell.md` does not cover this — it is the
+    unrelated jtbd-tool scaffold plan).
 
 Backlog — Blocked on CrossFileContext (from SP1)
   SP10: DependencyReveal
