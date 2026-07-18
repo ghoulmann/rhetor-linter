@@ -1,0 +1,44 @@
+name: tests
+
+on:
+  pull_request:
+    paths:
+      - "rhetoric_lint/**"
+      - "tests/**"
+      - "style-sets/**"
+      - "pyproject.toml"
+      - "setup.py"
+      - "requirements.txt"
+      - "Pipfile*"
+      - ".github/workflows/tests.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "rhetoric_lint/**"
+      - "tests/**"
+      - "style-sets/**"
+      - "pyproject.toml"
+      - "setup.py"
+      - "requirements.txt"
+      - "Pipfile*"
+      - ".github/workflows/tests.yml"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package with test extras
+        run: pip install '.[dev,yaml,spell]'
+
+      - name: Download spaCy model
+        run: python -m spacy download en_core_web_sm
+
+      - name: Run test suite
+        run: python -m pytest -q

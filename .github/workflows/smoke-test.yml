@@ -1,0 +1,49 @@
+name: smoke-test
+
+# Smoke test: verifies the package installs from source and the CLI runs to
+# completion without crashing. It deliberately TOLERATES lint findings — this
+# repo's own working docs (specs, roadmaps, pitches) are not held to the tool's
+# rhetorical-quality bar. It fails only if the tool errors out (no valid JSON
+# report produced), which would signal an install or runtime regression.
+#
+# This is NOT the adopter-facing example. For "how to use rhetoric-lint in your
+# own CI", see docs/ci-integration.md.
+
+on:
+  pull_request:
+    paths:
+      - "rhetoric_lint/**"
+      - "pyproject.toml"
+      - "setup.py"
+      - "requirements.txt"
+      - ".github/workflows/smoke-test.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "rhetoric_lint/**"
+      - "pyproject.toml"
+      - "setup.py"
+      - "requirements.txt"
+      - ".github/workflows/smoke-test.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install rhetoric-lint from source
+        run: pip install .
+
+      - name: Download spaCy model
+        run: python -m spacy download en_core_web_sm
+
+      - name: Run CLI and verify it produced a valid report
+        run: |
+          rhetoric-lint lint --format json docs/ README.md > smoke-out.json || true
+          python -c "import json; d = json.load(open('smoke-out.json')); assert 'Matches' in d, 'no Matches key — tool did not produce a valid report'; print(f'Smoke OK: CLI ran cleanly, {len(d[\"Matches\"])} findings (tolerated)')"

@@ -43,7 +43,7 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                                     ),
                                     "message": f"Long sentence ({tokens} tokens) — consider splitting",
                                     "severity": "warning",
-                                    "check": "attention.long_sentence",
+                                    "check": "Attention.LongSentence",
                                 }
                             )
                     continue
@@ -63,7 +63,7 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                                 "line": line,
                                 "message": f"Long sentence ({tokens} tokens) — consider splitting",
                                 "severity": "warning",
-                                "check": "attention.long_sentence",
+                                "check": "Attention.LongSentence",
                             }
                         )
     else:
@@ -81,7 +81,7 @@ def check(context: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "line": line,
                         "message": f"Long sentence ({tokens} tokens) — consider splitting",
                         "severity": "warning",
-                        "check": "attention.long_sentence",
+                        "check": "Attention.LongSentence",
                     }
                 )
 

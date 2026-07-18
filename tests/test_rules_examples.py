@@ -27,7 +27,7 @@ def test_long_sentence_flagged(tmp_path):
     md = f"""# Title\n\nThis paragraph contains a very long sentence: {long_sentence}\n"""
     issues = _run_md(md, tmp_path)
     checks = {it.get("check") for it in issues}
-    assert "attention.long_sentence" in checks
+    assert "Attention.LongSentence" in checks
 
 
 def test_list_parallelism_detects_outlier(tmp_path):

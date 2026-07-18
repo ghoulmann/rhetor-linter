@@ -29,7 +29,7 @@ pre-commit install
 
 ## GitHub Actions
 
-Copy `.github/workflows/rhetoric-lint.yml` from this repo, or add the steps below to an existing workflow:
+Add these steps to a workflow in your own repo:
 
 ```yaml
 - uses: actions/setup-python@v5
@@ -37,7 +37,9 @@ Copy `.github/workflows/rhetoric-lint.yml` from this repo, or add the steps belo
     python-version: "3.11"
 
 - name: Install rhetoric-lint
-  run: pip install rhetoric-lint
+  # rhetoric-lint is not yet published to PyPI — install from source.
+  # Pin @main to a release tag once one is available.
+  run: pip install "git+https://github.com/ghoulmann/rhetor-linter@main"
 
 - name: Download spaCy model
   run: python -m spacy download en_core_web_sm
